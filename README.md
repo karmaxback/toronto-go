@@ -1,4 +1,4 @@
-# Toronto Go
+# Toronto Move
 
 Live trip planner for Toronto: TTC, GO Transit, UP Express, VIA Rail, Pearson flights and Environment Canada weather alerts, in one map-based web app.
 
@@ -84,7 +84,9 @@ Platform notes:
 1. Push this repo to GitHub (private is fine).
 2. On [render.com](https://render.com): **New + → Blueprint**, connect GitHub, pick the repo.
 3. Fill in `CONTACT` (required by Transitous). Leave the API keys blank until you have them.
-4. Deploy. The app is served at `https://toronto-go-XXXX.onrender.com` with HTTPS.
+4. Deploy. The app is served at `https://toronto-move-XXXX.onrender.com` with HTTPS.
+
+The build also makes the website version of the Expo app (`mobile/dist`), which the server shows at `/`. The older website stays at `/classic`, and the privacy policy is at `/privacy` (store listings need it; it shows your `CONTACT`). Locally: `npm --prefix mobile run build:web`, then restart `npm run dev`. Without a build, `/` shows the older website.
 
 Every `git push` to `master` redeploys automatically. Add keys later under **Environment** in the Render dashboard; changing them restarts the app.
 
@@ -105,7 +107,8 @@ npm test     # notifier logic + a live trip-reminder run; push API tests run whe
 
 ```
 server/
-  index.js          Express API + static files
+  index.js          Express API
+  web.js            website: Expo build at /, privacy page, sw.js and icons from public/
   planner.js        plan + rank a trip (used by the API and the notifier)
   push.js           Web Push subscriptions, watched trips, /api/push/*
   notifier.js       minute-by-minute weather / route / trip notification logic
@@ -113,7 +116,8 @@ server/
   live.js           merges live TTC/GO predictions into schedule data
   cache.js          TTL cache, one upstream request per refresh window
   sources/          ttc, go, weather, flights, motis (routing/geocoding), gtfsrt decoder
-public/             index.html, app.js, styles.css (Leaflet map, no build step)
+public/             sw.js, icons, manifest, privacy.html, and the older website (index.html, app.js, styles.css)
+mobile/             Expo app for iPhone, Android and web (see mobile/README.md); mobile/store/ has the store listing
 ```
 
 ### How the live matching works

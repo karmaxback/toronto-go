@@ -2,8 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { api } from '@/lib/api';
+import type { IconName } from '@/lib/icons';
 import { useColors } from '@/lib/theme';
 import type { Place } from '@/lib/types';
+
+import { Icon } from './icon';
+import { RADIUS, SPACE, TYPE } from './ui';
+
+const suggestionIcon = (p: Place): IconName =>
+  p.type === 'SAVED' ? (p.detail === 'Home' ? 'home' : p.detail === 'Work' ? 'work' : 'history') : p.type === 'STOP' ? 'bus' : 'pin';
 
 type Props = {
   role: 'from' | 'to';
@@ -65,7 +72,7 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
   return (
     <View style={{ zIndex: role === 'from' ? 20 : 10 }}>
       <View style={styles.row}>
-        <View style={[styles.dot, { backgroundColor: role === 'from' ? c.from : c.to, borderRadius: role === 'from' ? 5 : 2 }]} />
+        <Icon name={role === 'from' ? 'location' : 'flag'} size={18} color={role === 'from' ? c.from : c.to} />
         <TextInput
           value={text}
           onChangeText={(t) => { setText(t); setOpen(true); if (!t) onChange(null); }}
@@ -73,7 +80,7 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
           onBlur={() => setTimeout(() => setOpen(false), 200)}
           placeholder={placeholder}
           placeholderTextColor={c.muted}
-          style={[styles.input, { color: c.ink }]}
+          style={[styles.input, TYPE.body, { color: c.ink }]}
           autoCorrect={false}
           returnKeyType="search"
           onSubmitEditing={submit}
@@ -88,16 +95,13 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
               key={`${p.name}-${i}`}
               onPress={() => { onChange({ name: p.name, lat: p.lat, lon: p.lon }); setOpen(false); }}
               style={({ pressed }) => [styles.item, pressed && { backgroundColor: c.soft }]}>
-              <Text style={[styles.kind, { color: c.muted }]}>
-                {p.type === 'SAVED' ? 'Saved' : p.kind ?? (p.type === 'STOP' ? 'Stop' : p.type === 'ADDRESS' ? 'Address' : 'Place')}
-              </Text>
+              <Icon name={suggestionIcon(p)} size={18} color={c.muted} />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: c.ink }} numberOfLines={1}>{p.name}</Text>
-                {p.detail || p.distanceKm != null ? (
-                  <Text style={{ color: c.muted, fontSize: 12 }} numberOfLines={1}>
-                    {[p.detail, p.distanceKm != null ? `${p.distanceKm} km away` : ''].filter(Boolean).join(' · ')}
-                  </Text>
-                ) : null}
+                <Text style={[TYPE.body, { color: c.ink }]} numberOfLines={1}>{p.name}</Text>
+                <Text style={[TYPE.caption, { color: c.muted }]} numberOfLines={1}>
+                  {[p.type === 'SAVED' ? null : p.kind ?? (p.type === 'STOP' ? 'Stop' : p.type === 'ADDRESS' ? 'Address' : 'Place'),
+                    p.detail, p.distanceKm != null ? `${p.distanceKm} km away` : ''].filter(Boolean).join(' · ')}
+                </Text>
               </View>
             </Pressable>
           ))}
@@ -108,10 +112,8 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, minHeight: 46 },
-  dot: { width: 10, height: 10 },
-  input: { flex: 1, fontSize: 15, paddingVertical: 10 },
-  list: { position: 'absolute', top: 46, left: 0, right: 0, borderWidth: 1, borderRadius: 10, padding: 4, zIndex: 50, elevation: 8 },
-  item: { flexDirection: 'row', gap: 10, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 7, alignItems: 'center' },
-  kind: { width: 78, fontSize: 10, textTransform: 'uppercase', fontWeight: '600' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm + 2, paddingHorizontal: SPACE.md, minHeight: 52 },
+  input: { flex: 1, paddingVertical: SPACE.sm + 2 },
+  list: { position: 'absolute', top: 52, left: 0, right: 0, borderWidth: 1, borderRadius: RADIUS.control, padding: SPACE.xs, zIndex: 50, elevation: 8 },
+  item: { flexDirection: 'row', gap: SPACE.md, minHeight: 48, paddingVertical: SPACE.sm, paddingHorizontal: SPACE.sm, borderRadius: RADIUS.chip, alignItems: 'center' },
 });

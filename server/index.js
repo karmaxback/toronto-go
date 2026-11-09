@@ -1,6 +1,4 @@
 import express from 'express';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { ttc } from './sources/ttc.js';
 import { go } from './sources/go.js';
@@ -15,10 +13,9 @@ import { startNotifier } from './notifier.js';
 import { stations as bikeStations, nearest as nearestBikes } from './sources/bikeshare.js';
 import { goFares } from './fares.js';
 import { searchPlaces } from './sources/geocode.js';
+import { serveWebsite } from './web.js';
 
 const app = express();
-const root = path.dirname(fileURLToPath(import.meta.url));
-app.use(express.static(path.join(root, '..', 'public'), { maxAge: 0 })); // ETag revalidation, always fresh
 
 // Let the Expo web build (served from another origin during development) call the API.
 // The API is public, read-only data plus push endpoints that require the subscriber's secret endpoint URL,
@@ -255,11 +252,12 @@ async function upDepartures(at, stopPrefix) {
 
 app.use('/api/push', pushRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+serveWebsite(app);
 startNotifier();
 goFares(); // warm the GO fare table (downloads ~10 MB on first run, then weekly)
 
 app.listen(config.port, () => {
-  console.log(`Toronto Go running at http://localhost:${config.port}`);
+  console.log(`Toronto Move running at http://localhost:${config.port}`);
   console.log(`  TTC live: on | GO/UP live: ${go.enabled() ? 'on' : 'off (set METROLINX_API_KEY)'} | Flights: ${flights.enabled() ? 'on' : 'off (set AERODATABOX_RAPIDAPI_KEY)'}`);
   console.log(`  Routing: ${config.motisUrl}${config.contact ? '' : '  (set CONTACT in .env — Transitous asks for it)'}`);
 });

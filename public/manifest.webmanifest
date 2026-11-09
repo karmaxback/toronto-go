@@ -1,6 +1,6 @@
 {
-  "name": "Toronto Go",
-  "short_name": "Toronto Go",
+  "name": "Toronto Move",
+  "short_name": "Toronto Move",
   "description": "Live TTC, GO, UP Express, VIA and Pearson trip planner with delay and weather alerts.",
   "start_url": "/",
   "scope": "/",
@@ -8,11 +8,55 @@
   "background_color": "#0e1412",
   "theme_color": "#0f6b5c",
   "shortcuts": [
-    { "name": "Next way home", "short_name": "Go home", "url": "/?go=home", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
-    { "name": "Departures near me", "short_name": "Nearby", "url": "/?tab=nearby", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+    {
+      "name": "Departures near me",
+      "short_name": "Nearby",
+      "url": "/?tab=nearby",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Alerts and notifications",
+      "short_name": "Alerts",
+      "url": "/?tab=alerts",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ],
   "icons": [
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

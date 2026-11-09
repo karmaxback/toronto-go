@@ -1,5 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 
+import type { IconName } from '@/lib/icons';
+
 export type LatLon = [number, number];
 
 export type MapLine = { id: string; points: LatLon[]; color: string; width?: number; dashed?: boolean };
@@ -8,10 +10,14 @@ export type MapMarker = {
   lat: number;
   lon: number;
   color: string;
-  /** small text shown inside the marker (route number, bike count) */
+  /** vehicle / bike / place icon drawn in white on `color` */
+  icon: IconName;
+  /** short text next to the icon (route number, bike count) */
   label?: string;
   title?: string;
-  shape?: 'dot' | 'square';
+  /** 'badge': round icon centred on the spot. 'pin': map pin whose tip touches the spot (trip start/end). */
+  style?: 'badge' | 'pin';
+  /** badge height in px (default 24) */
   size?: number;
 };
 

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Toronto Go",
-    "slug": "toronto-go",
+    "name": "Toronto Move",
+    "slug": "toronto-move",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "torontogo",
+    "scheme": "torontomove",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
@@ -28,7 +28,7 @@
       "output": "single",
       "favicon": "./assets/images/favicon.png",
       "bundler": "metro",
-      "name": "Toronto Go",
+      "name": "Toronto Move",
       "themeColor": "#0f6b5c"
     },
     "plugins": [
@@ -38,13 +38,13 @@
         {
           "backgroundColor": "#0f6b5c",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 140
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Toronto Go uses your location to find departures near you and plan trips from where you are."
+          "locationWhenInUsePermission": "Toronto Move uses your location to find departures near you and plan trips from where you are."
         }
       ],
       [

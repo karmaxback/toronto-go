@@ -1,5 +1,7 @@
 import { useColorScheme } from 'react-native';
 
+import { useSettings } from './settings';
+
 const light = {
   bg: '#f4f6f5',
   panel: '#ffffff',
@@ -43,6 +45,13 @@ const dark: Palette = {
   bike: '#3fbf63',
 };
 
+/** 'light' or 'dark': the Settings choice, or the phone's setting when it's "Automatic". */
+export function useScheme(): 'light' | 'dark' {
+  const system = useColorScheme();
+  const { theme } = useSettings();
+  return theme === 'system' ? (system === 'dark' ? 'dark' : 'light') : theme;
+}
+
 export function useColors(): Palette {
-  return useColorScheme() === 'dark' ? dark : light;
+  return useScheme() === 'dark' ? dark : light;
 }

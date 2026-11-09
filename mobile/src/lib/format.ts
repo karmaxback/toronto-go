@@ -1,10 +1,16 @@
+import { getSettings } from './settings';
 import type { Fare } from './types';
 
 const TZ = 'America/Toronto';
-const timeFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
+const time12 = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true });
+const time24 = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
-export const fmtTime = (iso?: string | null) =>
-  iso ? timeFmt.format(new Date(iso)).replace(/\s?([ap])\.?\s?m\.?/i, (_m, x: string) => ` ${x.toLowerCase()}m`) : '';
+/** "6:40 pm", or "18:40" when Settings → 24-hour clock is on. */
+export const fmtTime = (iso?: string | null) => {
+  if (!iso) return '';
+  if (getSettings().clock === '24h') return time24.format(new Date(iso));
+  return time12.format(new Date(iso)).replace(/\s?([ap])\.?\s?m\.?/i, (_m, x: string) => ` ${x.toLowerCase()}m`);
+};
 
 export const minsUntil = (iso: string) => Math.round((Date.parse(iso) - Date.now()) / 60000);
 

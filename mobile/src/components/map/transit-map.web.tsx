@@ -4,7 +4,9 @@ import L from 'leaflet';
 import { useEffect, useRef, type ComponentRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { TORONTO, type TransitMapProps } from './types';
+import { ICONS, iconSvg } from '@/lib/icons';
+
+import { TORONTO, type MapMarker, type TransitMapProps } from './types';
 
 /** Web map: Leaflet + OpenStreetMap tiles (same look as the original web app). */
 export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLongPress, onViewChange, style }: TransitMapProps) {
@@ -50,11 +52,8 @@ export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLo
       L.polyline(l.points, { color: l.color, weight: l.width ?? 5, dashArray: l.dashed ? '2 8' : undefined, lineCap: 'round' }).addTo(g);
     }
     for (const m of markers) {
-      const size = m.size ?? (m.label ? 22 : 14);
-      const radius = m.shape === 'square' ? '4px' : '50%';
-      const html = `<div style="width:${size}px;height:${size}px;border-radius:${radius};background:${m.color};border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0/.35);display:grid;place-items:center;color:#fff;font:700 10px/1 system-ui,sans-serif">${m.label ?? ''}</div>`;
-      const mk = L.marker([m.lat, m.lon], { icon: L.divIcon({ className: '', html, iconSize: [size, size] }), keyboard: false });
-      if (m.title) mk.bindTooltip(m.title.replace(/[<>&]/g, ''));
+      const mk = L.marker([m.lat, m.lon], { icon: markerIcon(m), keyboard: false });
+      if (m.title) mk.bindTooltip(m.title.replace(/[<>&]/g, ''), { direction: 'top', offset: [0, m.style === 'pin' ? -34 : -12] });
       mk.addTo(g);
     }
   }, [lines, markers]);
@@ -69,4 +68,24 @@ export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLo
   }, [fitKey]);
 
   return <View ref={host} style={[StyleSheet.absoluteFill, style]} />;
+}
+
+const esc = (t: string) => t.replace(/[<>&"]/g, '');
+
+/** Same look as marker-view.tsx: round badge with a white icon (and label), or a map pin for trip start/end. */
+function markerIcon(m: MapMarker): L.DivIcon {
+  if (m.style === 'pin') {
+    const html = `<div style="position:relative;width:38px;height:38px;filter:drop-shadow(0 1px 2px rgb(0 0 0/.35))">`
+      + `<svg width="38" height="38" viewBox="0 0 24 24"><path fill="${esc(m.color)}" d="${ICONS.pin}"/></svg>`
+      + `<div style="position:absolute;top:6px;left:9px;width:20px;height:20px;display:grid;place-items:center">${iconSvg(m.icon, '#fff', 14)}</div></div>`;
+    return L.divIcon({ className: '', html, iconSize: [38, 38], iconAnchor: [19, 38] });
+  }
+  const size = m.size ?? 24;
+  const icon = iconSvg(m.icon, '#fff', Math.round(size * 0.62));
+  const label = m.label ? `<span style="font:700 11px/1 system-ui,sans-serif;color:#fff;padding-right:1px">${esc(m.label)}</span>` : '';
+  const html = `<div style="display:inline-flex;align-items:center;justify-content:center;gap:2px;height:${size}px;min-width:${size}px;box-sizing:border-box;`
+    + `padding:0 ${m.label ? 5 : 0}px;border-radius:${size / 2}px;background:${esc(m.color)};border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0/.35);`
+    + `transform:translate(-50%,-50%);white-space:nowrap">${icon}${label}</div>`;
+  // zero-size anchor at the spot; the badge centres itself on it, whatever its width
+  return L.divIcon({ className: '', html, iconSize: [0, 0] });
 }

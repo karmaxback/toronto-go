@@ -19,11 +19,11 @@ export function parsePlaceParam(s?: string | string[]): Place | null {
 /** Share sheet on phones; on web use the browser share sheet or copy the link. Returns what happened. */
 export async function shareTrip(from: Place, to: Place): Promise<'shared' | 'copied' | 'failed'> {
   const url = tripLink(from, to);
-  const message = `Trip from ${from.name} to ${to.name} on Toronto Go: ${url}`;
+  const message = `Trip from ${from.name} to ${to.name} on Toronto Move: ${url}`;
   try {
     if (Platform.OS === 'web') {
       const nav = typeof navigator !== 'undefined' ? navigator : null;
-      if (nav?.share) { await nav.share({ title: 'Toronto Go trip', text: message, url }); return 'shared'; }
+      if (nav?.share) { await nav.share({ title: 'Toronto Move trip', text: message, url }); return 'shared'; }
       if (nav?.clipboard) { await nav.clipboard.writeText(url); return 'copied'; }
       return 'failed';
     }

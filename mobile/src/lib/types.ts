@@ -1,4 +1,4 @@
-// Shapes returned by the Toronto Go server (server/rank.js, server/fares.js, server/index.js).
+// Shapes returned by the Toronto Move server (server/rank.js, server/fares.js, server/index.js).
 
 export type Place = { name: string; lat: number; lon: number; type?: string; kind?: string; detail?: string; distanceKm?: number | null; id?: string };
 

@@ -1,4 +1,4 @@
-/* Toronto Go — front end. Plain ES modules + Leaflet, no build step. */
+/* Toronto Move — front end. Plain ES modules + Leaflet, no build step. */
 
 const TZ = 'America/Toronto';
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -907,7 +907,7 @@ async function initPush() {
 /** Ask permission + subscribe. Returns true when notifications are on. */
 async function enablePush() {
   if (!push.supported) { toast('This browser does not support notifications.'); return false; }
-  if (isIos && !isStandalone) { toast('On iPhone: tap Share → "Add to Home Screen", open Toronto Go from there, then turn on notifications.', 7000); return false; }
+  if (isIos && !isStandalone) { toast('On iPhone: tap Share → "Add to Home Screen", open Toronto Move from there, then turn on notifications.', 7000); return false; }
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') { toast('Notifications were blocked. Allow them in your browser settings for this site.', 5000); return false; }
   try {
@@ -941,7 +941,7 @@ function renderNotify() {
   const box = $('#notifyBox');
   if (!box) return;
   if (!push.supported) {
-    box.innerHTML = `<h4>Notifications</h4><p>${isIos ? 'On iPhone, add Toronto Go to your Home Screen (Share → Add to Home Screen) and open it from there to get alerts.' : 'This browser does not support push notifications.'}</p>`;
+    box.innerHTML = `<h4>Notifications</h4><p>${isIos ? 'On iPhone, add Toronto Move to your Home Screen (Share → Add to Home Screen) and open it from there to get alerts.' : 'This browser does not support push notifications.'}</p>`;
     return;
   }
   if (!push.me) {

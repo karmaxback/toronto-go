@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { usePush } from '@/lib/push';
+import { getSettings } from '@/lib/settings';
 import { useColors } from '@/lib/theme';
 import type { Place } from '@/lib/types';
 
-import { Button, Note, Pill, T } from './ui';
+import { Button, Note, Pill, RADIUS, SPACE, T, TYPE } from './ui';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const torontoHHMM = (iso: string) =>
@@ -16,6 +17,7 @@ const shiftHHMM = (hhmm: string, mins: number) => {
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 };
 const fmt12 = (hhmm: string) => {
+  if (getSettings().clock === '24h') return hhmm;
   const [h, m] = hhmm.split(':').map(Number);
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 };
@@ -40,20 +42,20 @@ export function WatchForm({ from, to, startIso, pref, accessible, onDone }: {
     try {
       if (!push.state) await push.enable();
       await push.addWatch({ name, leaveAt, days: [...days].sort(), remindMin: remind, from, to, pref, accessible });
-      onDone(`Watching “${name}”. Manage it in the Alerts tab.`);
+      onDone(`Watching “${name}”. Manage it in Settings.`);
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 
   return (
     <View style={[styles.box, { backgroundColor: c.soft }]}>
-      <T bold>🔔 Watch this trip</T>
-      <T muted size={12}>A heads-up about 40 min before if there’s a disruption, delay or bad weather, a reminder when it’s time to leave, and an update if the delay changes.</T>
+      <T variant="heading">Watch this trip</T>
+      <T muted variant="small">A heads-up about 40 min before if there’s a disruption, delay or bad weather, a reminder when it’s time to leave, and an update if the delay changes.</T>
       <TextInput value={name} onChangeText={setName} placeholder="Name (e.g. Work)" placeholderTextColor={c.muted} maxLength={60}
         style={[styles.input, { borderColor: c.line, color: c.ink, backgroundColor: c.card }]} />
       <View style={styles.row}>
         <T style={{ width: 70 }}>Leave at</T>
         {[-15, -5].map((d) => <Step key={d} label={String(d)} onPress={() => setLeaveAt(shiftHHMM(leaveAt, d))} />)}
-        <T bold size={16} style={{ flex: 1, textAlign: 'center' }}>{fmt12(leaveAt)}</T>
+        <T bold variant="heading" style={{ flex: 1, textAlign: 'center' }}>{fmt12(leaveAt)}</T>
         {[5, 15].map((d) => <Step key={d} label={`+${d}`} onPress={() => setLeaveAt(shiftHHMM(leaveAt, d))} />)}
       </View>
       <View style={styles.days}>
@@ -67,7 +69,7 @@ export function WatchForm({ from, to, startIso, pref, accessible, onDone }: {
       </View>
       {push.unavailable && !push.state ? <Note tone="info">{push.unavailable}</Note> : null}
       {err ? <Note tone="danger">{err}</Note> : null}
-      <Button title="Save" onPress={save} loading={busy} disabled={Boolean(push.unavailable && !push.state)} style={{ marginTop: 6 }} />
+      <Button title="Save" onPress={save} loading={busy} disabled={Boolean(push.unavailable && !push.state)} style={{ marginTop: SPACE.xs }} />
     </View>
   );
 }
@@ -76,15 +78,15 @@ function Step({ label, onPress }: { label: string; onPress: () => void }) {
   const c = useColors();
   return (
     <Pressable onPress={onPress} style={[styles.step, { borderColor: c.line, backgroundColor: c.card }]} accessibilityRole="button" accessibilityLabel={`${label} minutes`}>
-      <Text style={{ color: c.ink, fontWeight: '600', fontSize: 12.5 }}>{label}</Text>
+      <Text style={[TYPE.small, { color: c.ink, fontWeight: '600' }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { marginTop: 10, borderRadius: 10, padding: 10, gap: 6 },
-  input: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  days: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' },
-  step: { borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5 },
+  box: { marginTop: SPACE.md, borderRadius: RADIUS.control, padding: SPACE.md, gap: SPACE.sm },
+  input: { ...TYPE.body, borderWidth: 1, borderRadius: RADIUS.control, paddingHorizontal: SPACE.md, minHeight: 44 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: SPACE.xs + 2 },
+  days: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.xs + 2, alignItems: 'center' },
+  step: { borderWidth: 1, borderRadius: RADIUS.chip, minHeight: 34, minWidth: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.sm },
 });

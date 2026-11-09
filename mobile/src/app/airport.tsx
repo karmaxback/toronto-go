@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Card, LiveDot, Note, Segmented, SectionTitle, T } from '@/components/ui';
+import { Button, Card, LiveDot, Note, RADIUS, ScreenHeader, Segmented, SectionTitle, SPACE, T, TYPE, page } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useNow, usePolling } from '@/lib/hooks';
 import { fmtTime } from '@/lib/format';
@@ -34,12 +34,12 @@ export default function AirportScreen() {
   return (
     <ScrollView
       style={{ backgroundColor: c.panel }}
-      contentContainerStyle={[styles.panel, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 }]}
+      contentContainerStyle={[page, { paddingTop: insets.top + SPACE.lg, paddingBottom: insets.bottom + 30 }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
-      <T bold size={22}>✈️ Toronto Pearson</T>
+      <ScreenHeader title="Airport" subtitle="Toronto Pearson (YYZ)" />
       <View style={styles.two}>
-        <Button title="Route me to Terminal 1" kind="ghost" onPress={() => goTo('T1')} style={{ flex: 1 }} />
-        <Button title="Route me to Terminal 3" kind="ghost" onPress={() => goTo('T3')} style={{ flex: 1 }} />
+        <Button icon="plane" title="To Terminal 1" kind="ghost" onPress={() => goTo('T1')} style={{ flex: 1 }} />
+        <Button icon="plane" title="To Terminal 3" kind="ghost" onPress={() => goTo('T3')} style={{ flex: 1 }} />
       </View>
       {error ? <Note tone="danger">{error}</Note> : null}
 
@@ -47,12 +47,12 @@ export default function AirportScreen() {
       <View style={styles.two}>
         {([['Union → Pearson', data?.upExpress.fromUnion ?? []], ['Pearson → Union', data?.upExpress.fromPearson ?? []]] as const).map(([title, list]) => (
           <Card key={title} style={{ flex: 1 }}>
-            <T muted size={12.5} bold>{title}</T>
+            <T muted variant="small" bold>{title}</T>
             <View style={styles.times}>
               {upcoming([...list]).map((d, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center' }}>{d.live ? <LiveDot /> : null}<T bold>{fmtTime(d.time)}</T></View>
               ))}
-              {!upcoming([...list]).length ? <T muted size={13}>No departures</T> : null}
+              {!upcoming([...list]).length ? <T muted variant="small">No departures</T> : null}
             </View>
           </Card>
         ))}
@@ -89,22 +89,21 @@ function FlightRow({ f }: { f: Flight }) {
     <View style={[styles.flight, { borderBottomColor: c.line }]}>
       <View style={{ width: 66 }}>
         <T bold>{fmtTime(f.estimated || f.scheduled)}</T>
-        {changed ? <T muted size={11} style={{ textDecorationLine: 'line-through' }}>{fmtTime(f.scheduled)}</T> : null}
+        {changed ? <T muted variant="caption" style={{ textDecorationLine: 'line-through' }}>{fmtTime(f.scheduled)}</T> : null}
       </View>
       <View style={{ flex: 1 }}>
         <T bold numberOfLines={1}>{f.city || f.airport}</T>
-        <T muted size={12} numberOfLines={1}>{f.number} · {f.airline}{f.terminal ? ` · T${f.terminal}` : ''}{f.gate ? ` · Gate ${f.gate}` : ''}</T>
+        <T muted variant="small" numberOfLines={1}>{f.number} · {f.airline}{f.terminal ? ` · T${f.terminal}` : ''}{f.gate ? ` · Gate ${f.gate}` : ''}</T>
       </View>
-      <T size={11.5} bold color={fg} style={[styles.status, { backgroundColor: bg }]}>{label}</T>
+      <T variant="caption" bold color={fg} style={[styles.status, { backgroundColor: bg }]}>{label}</T>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  panel: { padding: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
-  two: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  times: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6 },
-  search: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, marginTop: 8, fontSize: 14 },
-  flight: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1 },
-  status: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, overflow: 'hidden' },
+  two: { flexDirection: 'row', gap: SPACE.sm, marginTop: SPACE.sm },
+  times: { flexDirection: 'row', flexWrap: 'wrap', columnGap: SPACE.md, rowGap: SPACE.xs, marginTop: SPACE.sm },
+  search: { ...TYPE.body, borderWidth: 1, borderRadius: RADIUS.control, paddingHorizontal: SPACE.md, minHeight: 44, marginTop: SPACE.sm },
+  flight: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm + 2, minHeight: 56, paddingVertical: SPACE.sm, borderBottomWidth: StyleSheet.hairlineWidth },
+  status: { paddingHorizontal: SPACE.sm, paddingVertical: 2, borderRadius: RADIUS.chip, overflow: 'hidden' },
 });

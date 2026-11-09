@@ -1,12 +1,12 @@
-/* Toronto Go service worker: receives push notifications and opens the app when one is tapped. */
+/* Toronto Move service worker: receives push notifications and opens the app when one is tapped. */
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', (event) => {
   let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'Toronto Go', body: event.data?.text() || '' }; }
-  const title = data.title || 'Toronto Go';
+  try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'Toronto Move', body: event.data?.text() || '' }; }
+  const title = data.title || 'Toronto Move';
   event.waitUntil(self.registration.showNotification(title, {
     body: data.body || '',
     icon: '/icon.svg',

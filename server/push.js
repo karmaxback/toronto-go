@@ -40,7 +40,7 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   save();
 }
 const subject = /^(mailto:|https:\/\/)/.test(config.contact) ? config.contact
-  : config.contact.includes('@') ? `mailto:${config.contact}` : 'mailto:toronto-go@example.com';
+  : config.contact.includes('@') ? `mailto:${config.contact}` : 'mailto:toronto-move@example.com';
 webpush.setVapidDetails(subject, db.vapid.publicKey, db.vapid.privateKey);
 
 export const subId = (endpoint) => crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 24);
@@ -230,7 +230,7 @@ pushRoutes.post('/watch/delete', handle(async (req) => {
 
 pushRoutes.post('/test', handle(async (req) => {
   const sub = findSub(req);
-  const ok = await send(sub, { title: 'Toronto Go notifications are on', body: 'You will get weather warnings, route alerts and trip reminders here.', tag: 'test' });
+  const ok = await send(sub, { title: 'Toronto Move notifications are on', body: 'You will get weather warnings, route alerts and trip reminders here.', tag: 'test' });
   if (!ok) throw bad('The push service rejected the test message', 502);
   return { ok };
 }));

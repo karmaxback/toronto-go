@@ -43,7 +43,7 @@ export async function getDeviceIdentity(): Promise<DeviceIdentity> {
   }
   let perm = await Notifications.getPermissionsAsync();
   if (perm.status !== 'granted') perm = await Notifications.requestPermissionsAsync();
-  if (perm.status !== 'granted') throw new Error('Notifications are turned off for Toronto Go. Turn them on in your phone’s Settings.');
+  if (perm.status !== 'granted') throw new Error('Notifications are turned off for Toronto Move. Turn them on in your phone’s Settings.');
   const token = (await Notifications.getExpoPushTokenAsync({ projectId: projectId() })).data;
   return { expoToken: token, platform: Platform.OS };
 }

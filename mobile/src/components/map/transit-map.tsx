@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 
-import { TORONTO, type TransitMapProps } from './types';
+import { MarkerView } from './marker-view';
+import { TORONTO, type MapMarker, type TransitMapProps } from './types';
 
 /** iOS (Apple Maps) and Android (Google Maps) via react-native-maps. Web uses transit-map.web.tsx. */
 export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLongPress, onViewChange, style }: TransitMapProps) {
@@ -46,25 +47,25 @@ export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLo
           lineCap="round"
         />
       ))}
-      {markers.map((m) => {
-        const size = m.size ?? (m.label ? 22 : 14);
-        return (
-          <Marker key={m.id} coordinate={{ latitude: m.lat, longitude: m.lon }} title={m.title} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-            <View
-              style={[
-                styles.pin,
-                { width: size, height: size, backgroundColor: m.color, borderRadius: m.shape === 'square' ? 4 : size / 2 },
-              ]}>
-              {m.label ? <Text style={styles.pinText}>{m.label}</Text> : null}
-            </View>
-          </Marker>
-        );
-      })}
+      {markers.map((m) => <MapPin key={`${m.id}|${m.icon}|${m.label ?? ''}|${m.color}`} m={m} />)}
     </MapView>
   );
 }
 
-const styles = StyleSheet.create({
-  pin: { borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  pinText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-});
+/**
+ * Custom marker views are drawn once and then frozen (tracksViewChanges off) so hundreds of live vehicles stay smooth.
+ * The icon is SVG, which needs a moment to draw first, so tracking stays on for the first half second.
+ */
+function MapPin({ m }: { m: MapMarker }) {
+  const [tracking, setTracking] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setTracking(false), 500);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <Marker coordinate={{ latitude: m.lat, longitude: m.lon }} title={m.title}
+      anchor={m.style === 'pin' ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }} tracksViewChanges={tracking}>
+      <MarkerView m={m} />
+    </Marker>
+  );
+}

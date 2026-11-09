@@ -1,5 +1,5 @@
 {
-  "name": "toronto-go",
+  "name": "toronto-move",
   "version": "0.1.0",
   "description": "Live Toronto trip planner: TTC, GO Transit, UP Express, VIA Rail, Pearson flights and Environment Canada weather.",
   "type": "module",

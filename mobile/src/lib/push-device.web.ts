@@ -2,7 +2,7 @@ import { apiBase } from './config';
 
 /*
  * Website: standard Web Push through the service worker the server already serves at /sw.js.
- * Works when the website is served by the Toronto Go server (same origin), over HTTPS or localhost.
+ * Works when the website is served by the Toronto Move server (same origin), over HTTPS or localhost.
  */
 
 export type DeviceIdentity = { subscription: PushSubscriptionJSON; endpoint: string; platform: string };
@@ -18,7 +18,7 @@ export function pushUnavailableReason(): string | null {
       ? 'On iPhone, add this site to your Home Screen (Share → Add to Home Screen) and open it from there to get notifications.'
       : 'This browser does not support notifications.';
   }
-  if (apiBase() !== '') return 'Notifications work on the website served by the Toronto Go server (not the development preview).';
+  if (apiBase() !== '') return 'Notifications work on the website served by the Toronto Move server (not the development preview).';
   return null;
 }
 

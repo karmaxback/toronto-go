@@ -1,15 +1,18 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Icon } from '@/components/icon';
+import { bikeColor } from '@/components/map/layers';
 import TransitMap from '@/components/map/transit-map';
 import type { MapMarker } from '@/components/map/types';
 import { PlaceInput } from '@/components/place-input';
-import { Card, LiveDot, Note, T, modeIcon } from '@/components/ui';
+import { Card, LiveDot, Note, Pill, RADIUS, RouteBadge, SPACE, T, page } from '@/components/ui';
 import { WeatherBanner } from '@/components/weather-chip';
 import { api } from '@/lib/api';
 import { cleanHeadsign, fmtTime, inLabel } from '@/lib/format';
+import { modeIconName } from '@/lib/icons';
 import { usePolling } from '@/lib/hooks';
 import { getLocationIfAllowed, getMyLocation } from '@/lib/location';
 import { load as loadStored, type SavedPlaces } from '@/lib/storage';
@@ -59,10 +62,14 @@ export default function NearbyScreen() {
     (e: Error) => setLocError(e.message),
   ), []);
 
+  // stops show the vehicle that leaves next (bus, streetcar, subway, train); bike stations show bikes available
   const markers = useMemo<MapMarker[]>(() => [
-    ...(at ? [{ id: 'here', lat: at.lat, lon: at.lon, color: '#1f5fbf', size: 14, title: at.name }] : []),
-    ...boards.map((b) => ({ id: b.stopId, lat: b.lat, lon: b.lon, color: b.departures[0]?.color || c.brand, size: 13, title: b.name })),
-    ...bikes.map((s) => ({ id: `bs${s.id}`, lat: s.lat, lon: s.lon, color: s.bikes ? c.bike : '#9aa3a0', label: String(s.bikes), title: s.name })),
+    ...bikes.map((s): MapMarker => ({ id: `bs${s.id}`, lat: s.lat, lon: s.lon, color: bikeColor(s.bikes), icon: 'bike', label: String(s.bikes), title: s.name })),
+    ...boards.map((b): MapMarker => ({
+      id: b.stopId, lat: b.lat, lon: b.lon, color: b.departures[0]?.color || c.brand,
+      icon: modeIconName(b.departures[0]?.mode), label: b.departures[0]?.route ?? undefined, title: b.name,
+    })),
+    ...(at ? [{ id: 'here', lat: at.lat, lon: at.lon, color: '#1f5fbf', icon: at.source === 'location' ? 'location' : 'pin', style: 'pin', title: at.name } satisfies MapMarker] : []),
   ], [at, boards, bikes, c]);
 
   return (
@@ -73,7 +80,7 @@ export default function NearbyScreen() {
       </View>
       <ScrollView
         style={{ backgroundColor: c.panel }}
-        contentContainerStyle={[styles.panel, { paddingBottom: insets.bottom + 30 }]}
+        contentContainerStyle={[page, { paddingBottom: insets.bottom + 30 }]}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         <WeatherBanner />
@@ -84,32 +91,32 @@ export default function NearbyScreen() {
             onChange={(p) => { if (p) setAt({ ...p, source: 'search' }); }}
             placeholder="Departures near… (any address or place)"
             near={at}
-            right={(
-              <Pressable onPress={nearMe} hitSlop={8} accessibilityRole="button" accessibilityLabel="Departures near me" style={[styles.meBtn, { borderColor: c.line }]}>
-                <Text style={{ color: c.ink, fontSize: 12.5, fontWeight: '600' }}>📍 Near me</Text>
-              </Pressable>
-            )}
+            right={<Pill icon="gps" label="Near me" onPress={nearMe} active={at?.source === 'location'} />}
           />
         </View>
-        <T muted size={12.5} style={{ marginTop: 8 }}>
+        <T muted variant="small" style={{ marginTop: SPACE.sm }}>
           {at ? `Near ${at.name}${data ? ` · ${boards.length} stops within 450 m` : ''} · long-press the map to look elsewhere` : 'Loading…'}
         </T>
         {at && at.source !== 'location' ? (
           <Note tone="info">
-            {locError ? `${locError} ` : ''}Showing {at.source === 'home' ? 'your Home' : at.source === 'downtown' ? 'downtown' : 'the place you chose'}. Tap 📍 Near me to use where you are.
+            {locError ? `${locError} ` : ''}Showing {at.source === 'home' ? 'your Home' : at.source === 'downtown' ? 'downtown' : 'the place you chose'}. Tap “Near me” to use where you are.
           </Note>
         ) : null}
         {loadError ? <Note tone="danger">{loadError}</Note> : null}
         {loading ? <Note tone="info">Loading departures…</Note> : null}
 
         {bikes.length > 0 && (
-          <Card style={{ marginTop: 10, padding: 0, overflow: 'hidden' }}>
-            <View style={[styles.boardHead, { backgroundColor: c.soft }]}><T bold size={13}>🚲 Bike Share Toronto</T><T muted size={12}>live</T></View>
+          <Card style={{ marginTop: SPACE.md, padding: 0, overflow: 'hidden' }}>
+            <View style={[styles.boardHead, { backgroundColor: c.soft }]}>
+              <Icon name="bike" size={18} color={c.bike} />
+              <T bold style={{ flex: 1 }}>Bike Share Toronto</T>
+              <View style={styles.inline}><LiveDot /><T muted variant="caption">live</T></View>
+            </View>
             {bikes.map((s) => (
               <View key={s.id} style={[styles.bikeRow, { borderTopColor: c.line }]}>
-                <View style={{ flex: 1 }}><T size={13} numberOfLines={1}>{s.name}</T><T muted size={11.5}>{s.distanceM} m</T></View>
-                <View style={styles.num}><T bold size={15}>{s.bikes}</T><T muted size={11}>bikes{s.ebikes ? ` · ${s.ebikes} e` : ''}</T></View>
-                <View style={styles.num}><T bold size={15}>{s.docks}</T><T muted size={11}>docks</T></View>
+                <View style={{ flex: 1 }}><T variant="small" numberOfLines={1}>{s.name}</T><T muted variant="caption">{s.distanceM} m</T></View>
+                <View style={styles.num}><T bold variant="heading">{s.bikes}</T><T muted variant="caption">bikes{s.ebikes ? ` · ${s.ebikes} e` : ''}</T></View>
+                <View style={styles.num}><T bold variant="heading">{s.docks}</T><T muted variant="caption">docks</T></View>
               </View>
             ))}
           </Card>
@@ -117,19 +124,21 @@ export default function NearbyScreen() {
 
         {boards.map((b) => (
           <Card key={b.stopId} style={{ marginTop: 10, padding: 0, overflow: 'hidden' }}>
-            <View style={[styles.boardHead, { backgroundColor: c.soft }]}><T bold size={13} style={{ flex: 1 }} numberOfLines={1}>{b.name}</T><T muted size={12}>{b.distanceM} m</T></View>
+            <View style={[styles.boardHead, { backgroundColor: c.soft }]}>
+              <Icon name={modeIconName(b.departures[0]?.mode)} size={18} color={c.muted} />
+              <T bold style={{ flex: 1 }} numberOfLines={1}>{b.name}</T>
+              <T muted variant="small">{b.distanceM} m</T>
+            </View>
             {b.departures.map((d, i) => (
               <View key={i} style={[styles.dep, { borderTopColor: c.line }]}>
-                <View style={[styles.chip, { backgroundColor: d.color || c.soft }]}>
-                  <Text style={{ color: d.color ? d.textColor || '#fff' : c.ink, fontWeight: '700', fontSize: 12 }}>{modeIcon(d.mode)} {d.route}</Text>
-                </View>
-                <T size={13} style={{ flex: 1 }} numberOfLines={1}>{cleanHeadsign(d.headsign)}{d.track ? ` · Plat. ${d.track}` : ''}</T>
+                <RouteBadge mode={d.mode} route={d.route} color={d.color} textColor={d.textColor} />
+                <T variant="small" style={{ flex: 1 }} numberOfLines={1}>{cleanHeadsign(d.headsign)}{d.track ? ` · Plat. ${d.track}` : ''}</T>
                 <View style={{ alignItems: 'flex-end' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     {d.live ? <LiveDot /> : null}
-                    <T bold size={15} color={d.live ? c.live : c.ink}>{inLabel(d.time)}</T>
+                    <T bold variant="heading" color={d.live ? c.live : c.ink}>{inLabel(d.time)}</T>
                   </View>
-                  <T muted size={11}>{fmtTime(d.time)}{d.live ? (d.delayMin ? ` · ${d.delayMin > 0 ? '+' : ''}${d.delayMin}` : '') : ' sched'}</T>
+                  <T muted variant="caption">{fmtTime(d.time)}{d.live ? (d.delayMin ? ` · ${d.delayMin > 0 ? '+' : ''}${d.delayMin}` : '') : ' sched'}</T>
                 </View>
               </View>
             ))}
@@ -142,12 +151,10 @@ export default function NearbyScreen() {
 }
 
 const styles = StyleSheet.create({
-  panel: { padding: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
-  search: { borderWidth: 1, borderRadius: 12, zIndex: 30 },
-  meBtn: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
-  boardHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 9, paddingHorizontal: 12 },
-  dep: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 12, borderTopWidth: 1 },
-  chip: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  bikeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 12, borderTopWidth: 1 },
-  num: { alignItems: 'flex-end', minWidth: 44 },
+  search: { borderWidth: 1, borderRadius: RADIUS.card, zIndex: 30 },
+  inline: { flexDirection: 'row', alignItems: 'center' },
+  boardHead: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, paddingVertical: SPACE.sm + 2, paddingHorizontal: SPACE.md },
+  dep: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm + 2, minHeight: 52, paddingVertical: SPACE.sm, paddingHorizontal: SPACE.md, borderTopWidth: StyleSheet.hairlineWidth },
+  bikeRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md, minHeight: 52, paddingVertical: SPACE.sm, paddingHorizontal: SPACE.md, borderTopWidth: StyleSheet.hairlineWidth },
+  num: { alignItems: 'flex-end', minWidth: 48 },
 });

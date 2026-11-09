@@ -1,17 +1,18 @@
-# Render Blueprint: one-click deploy of Toronto Go.
+# Render Blueprint: one-click deploy of Toronto Move.
 # In Render: New + -> Blueprint -> pick this GitHub repo. Fill in the secret values when asked.
 services:
   - type: web
-    name: toronto-go
+    name: toronto-move
     runtime: node
     plan: starter          # always-on (~US$7/mo). The free plan sleeps, which would stop notifications.
     region: ohio           # closest Render region to Toronto
-    buildCommand: npm ci --omit=dev
+    # Server packages, then the app's website version (mobile/dist), which the server shows at /
+    buildCommand: npm ci --omit=dev && npm --prefix mobile ci && npm --prefix mobile run build:web
     startCommand: npm start
     healthCheckPath: /api/status
     autoDeploy: true       # every push to GitHub redeploys
     disk:
-      name: toronto-go-data  # keeps push subscriptions, VAPID keys and the GO fare table across deploys
+      name: toronto-move-data  # keeps push subscriptions, VAPID keys and the GO fare table across deploys
       mountPath: /opt/render/project/src/data
       sizeGB: 1
     envVars:

@@ -8,7 +8,7 @@ export const config = {
   aeroDataBoxKey: (env.AERODATABOX_RAPIDAPI_KEY || '').trim(),
 };
 
-export const userAgent = `TorontoGo/0.1 (${config.contact || 'contact not configured'})`;
+export const userAgent = `TorontoMove/0.1 (${config.contact || 'contact not configured'})`;
 
 /** fetch with a timeout and our User-Agent. Throws on non-2xx. */
 export async function http(url, { timeout = 20000, headers = {}, as = 'json' } = {}) {

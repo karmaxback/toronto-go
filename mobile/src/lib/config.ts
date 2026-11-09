@@ -11,8 +11,8 @@ export function webBase(): string {
 }
 
 /**
- * Where the Toronto Go server lives.
- *  - EXPO_PUBLIC_API_URL wins if set (e.g. https://toronto-go-xxxx.onrender.com for store builds).
+ * Where the Toronto Move server lives.
+ *  - EXPO_PUBLIC_API_URL wins if set (e.g. https://toronto-move-xxxx.onrender.com for store builds).
  *  - Web: same origin when served by our server; port 3000 on the same host during `expo start --web`.
  *  - Phone in Expo Go: the computer running `expo start` (its LAN IP), port 3000.
  */

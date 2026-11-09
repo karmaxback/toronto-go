@@ -4,7 +4,7 @@ import { fmtTime } from '@/lib/format';
 import { useNow } from '@/lib/hooks';
 import { useColors } from '@/lib/theme';
 
-import { Pill, Segmented } from './ui';
+import { Pill, RADIUS, Segmented, SPACE, TYPE } from './ui';
 
 export type WhenMode = 'now' | 'depart' | 'arrive';
 
@@ -29,7 +29,7 @@ export function WhenPicker({ mode, date, onChange }: { mode: WhenMode; date: Dat
   const shift = (ms: number) => onChange(mode, new Date(when.getTime() + ms));
 
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: SPACE.sm }}>
       <Segmented<WhenMode>
         value={mode}
         onChange={(m) => onChange(m, m === 'now' ? null : date ?? defaultWhen())}
@@ -37,7 +37,7 @@ export function WhenPicker({ mode, date, onChange }: { mode: WhenMode; date: Dat
       />
       {mode !== 'now' && (
         <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: SPACE.sm }}>
             {Array.from({ length: 7 }, (_, n) => (
               <Pill key={n} active={n === dayOffset} onPress={() => setDay(n)}
                 label={n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : DAY_NAMES[new Date(today + n * DAY).getDay()]} />
@@ -46,13 +46,13 @@ export function WhenPicker({ mode, date, onChange }: { mode: WhenMode; date: Dat
           <View style={[styles.stepper, { borderColor: c.line, backgroundColor: c.card }]}>
             {[['−1h', -12 * STEP], ['−5', -STEP]].map(([label, ms]) => (
               <Pressable key={label} onPress={() => shift(ms as number)} style={[styles.step, { borderColor: c.line }]} accessibilityRole="button" accessibilityLabel={`${label} minutes`}>
-                <Text style={{ color: c.ink, fontWeight: '600' }}>{label}</Text>
+                <Text style={[TYPE.small, { color: c.ink, fontWeight: '600' }]}>{label}</Text>
               </Pressable>
             ))}
             <Text style={[styles.time, { color: c.ink }]}>{mode === 'arrive' ? 'by ' : ''}{fmtTime(when.toISOString())}</Text>
             {[['+5', STEP], ['+1h', 12 * STEP]].map(([label, ms]) => (
               <Pressable key={label} onPress={() => shift(ms as number)} style={[styles.step, { borderColor: c.line }]} accessibilityRole="button" accessibilityLabel={`${label} minutes`}>
-                <Text style={{ color: c.ink, fontWeight: '600' }}>{label}</Text>
+                <Text style={[TYPE.small, { color: c.ink, fontWeight: '600' }]}>{label}</Text>
               </Pressable>
             ))}
           </View>
@@ -63,7 +63,7 @@ export function WhenPicker({ mode, date, onChange }: { mode: WhenMode; date: Dat
 }
 
 const styles = StyleSheet.create({
-  stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, padding: 4, gap: 4 },
-  step: { borderWidth: 1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10 },
-  time: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700' },
+  stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: RADIUS.control, padding: SPACE.xs, gap: SPACE.xs },
+  step: { borderWidth: 1, borderRadius: RADIUS.chip, minHeight: 36, minWidth: 48, alignItems: 'center', justifyContent: 'center' },
+  time: { ...TYPE.heading, flex: 1, textAlign: 'center' },
 });
