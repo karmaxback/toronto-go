@@ -9,6 +9,18 @@ export async function getMyLocation(): Promise<{ lat: number; lon: number }> {
   return { lat: pos.coords.latitude, lon: pos.coords.longitude };
 }
 
+/** Current position only if location is already allowed (never shows a permission prompt). */
+export async function getLocationIfAllowed(): Promise<{ lat: number; lon: number } | null> {
+  if (!(await hasLocationPermission())) return null;
+  try {
+    const pos = (await Location.getLastKnownPositionAsync({ maxAge: 10 * 60_000 }))
+      ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+    return { lat: pos.coords.latitude, lon: pos.coords.longitude };
+  } catch {
+    return null;
+  }
+}
+
 /** True when the user already allowed location (so we can use it without a prompt). */
 export async function hasLocationPermission() {
   try {

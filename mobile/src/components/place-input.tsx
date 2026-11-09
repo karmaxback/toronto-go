@@ -13,10 +13,12 @@ type Props = {
   /** extra suggestions shown when the box is empty (saved places, recents) */
   quick?: Place[];
   right?: React.ReactNode;
+  /** rank results near here (trip start, or the user's location) */
+  near?: { lat: number; lon: number } | null;
 };
 
 /** Address / place / stop search with suggestions from the server's geocoder. */
-export function PlaceInput({ role, value, placeholder, onChange, quick = [], right }: Props) {
+export function PlaceInput({ role, value, placeholder, onChange, quick = [], right, near }: Props) {
   const c = useColors();
   const [text, setText] = useState(value?.name ?? '');
   const [items, setItems] = useState<Place[]>([]);
@@ -39,14 +41,14 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
     const t = setTimeout(async () => {
       setBusy(true);
       try {
-        const res = await api.geocode(q);
+        const res = await api.geocode(q, near);
         if (my !== seq.current) return;
         const seen = new Set<string>();
         setItems(res.filter((r) => { const k = r.name + (r.detail ?? ''); if (seen.has(k)) return false; seen.add(k); return true; }));
       } catch { /* keep typing */ } finally { if (my === seq.current) setBusy(false); }
     }, 300);
     return () => clearTimeout(t);
-  }, [text, open, value?.name]);
+  }, [text, open, value?.name, near]);
 
   const q = text.trim();
   const shown = q.length < 3 ? quick : q === value?.name ? [] : items;
@@ -55,7 +57,7 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
   const submit = async () => {
     let pick = shown[0];
     if (!pick && q.length >= 3 && q !== value?.name) {
-      try { pick = (await api.geocode(q))[0]; } catch { /* nothing found */ }
+      try { pick = (await api.geocode(q, near))[0]; } catch { /* nothing found */ }
     }
     if (pick) { onChange({ name: pick.name, lat: pick.lat, lon: pick.lon }); setOpen(false); }
   };
@@ -87,11 +89,15 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
               onPress={() => { onChange({ name: p.name, lat: p.lat, lon: p.lon }); setOpen(false); }}
               style={({ pressed }) => [styles.item, pressed && { backgroundColor: c.soft }]}>
               <Text style={[styles.kind, { color: c.muted }]}>
-                {p.type === 'STOP' ? 'Stop' : p.type === 'ADDRESS' ? 'Address' : p.type === 'SAVED' ? 'Saved' : 'Place'}
+                {p.type === 'SAVED' ? 'Saved' : p.kind ?? (p.type === 'STOP' ? 'Stop' : p.type === 'ADDRESS' ? 'Address' : 'Place')}
               </Text>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: c.ink }} numberOfLines={1}>{p.name}</Text>
-                {p.detail ? <Text style={{ color: c.muted, fontSize: 12 }} numberOfLines={1}>{p.detail}</Text> : null}
+                {p.detail || p.distanceKm != null ? (
+                  <Text style={{ color: c.muted, fontSize: 12 }} numberOfLines={1}>
+                    {[p.detail, p.distanceKm != null ? `${p.distanceKm} km away` : ''].filter(Boolean).join(' · ')}
+                  </Text>
+                ) : null}
               </View>
             </Pressable>
           ))}
@@ -107,5 +113,5 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, paddingVertical: 10 },
   list: { position: 'absolute', top: 46, left: 0, right: 0, borderWidth: 1, borderRadius: 10, padding: 4, zIndex: 50, elevation: 8 },
   item: { flexDirection: 'row', gap: 10, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 7, alignItems: 'center' },
-  kind: { width: 52, fontSize: 10, textTransform: 'uppercase', fontWeight: '600' },
+  kind: { width: 78, fontSize: 10, textTransform: 'uppercase', fontWeight: '600' },
 });

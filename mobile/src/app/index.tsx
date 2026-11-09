@@ -11,7 +11,7 @@ import { Button, Card, LegChip, LiveDot, Note, Pill, Segmented, T } from '@/comp
 import { WeatherChip } from '@/components/weather-chip';
 import { api } from '@/lib/api';
 import { decodePolyline, delayText, durLabel, fareText, fmtTime, minsUntil, modeName } from '@/lib/format';
-import { getMyLocation, hasLocationPermission } from '@/lib/location';
+import { getLocationIfAllowed, getMyLocation, hasLocationPermission } from '@/lib/location';
 import { useStored, type SavedPlaces } from '@/lib/storage';
 import { useColors } from '@/lib/theme';
 import type { Option, Place } from '@/lib/types';
@@ -35,6 +35,8 @@ export default function PlanScreen() {
   const [selected, setSelected] = useState(0);
   const [pin, setPin] = useState<{ lat: number; lon: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [myPos, setMyPos] = useState<{ lat: number; lon: number } | null>(null);
+  useEffect(() => { getLocationIfAllowed().then(setMyPos); }, []);
 
   // "Route me to Pearson" etc. from other tabs (adjust state while rendering, no effect needed)
   const paramKey = params.toLat && params.toLon ? `${params.toLat},${params.toLon},${params.toName ?? ''}` : '';
@@ -168,10 +170,10 @@ export default function PlanScreen() {
           <HomeCard home={saved.Home} pref={pref} rider={rider} accessible={accessible} onDetails={(p) => { setFrom(p); setTo(saved.Home!); }} />
 
           <View style={[styles.od, { borderColor: c.line, backgroundColor: c.card }]}>
-            <PlaceInput role="from" value={from} onChange={setFrom} placeholder="From: address, place or stop" quick={quick}
+            <PlaceInput role="from" value={from} onChange={setFrom} placeholder="From: address, place or stop" quick={quick} near={myPos}
               right={<Pressable onPress={useMyLocation} hitSlop={8} accessibilityLabel="Use my location"><Text style={{ fontSize: 18 }}>📍</Text></Pressable>} />
             <View style={{ height: 1, backgroundColor: c.line }} />
-            <PlaceInput role="to" value={to} onChange={setTo} placeholder="To: where are you going?" quick={quick}
+            <PlaceInput role="to" value={to} onChange={setTo} placeholder="To: where are you going?" quick={quick} near={from ?? myPos}
               right={<Pressable onPress={swap} hitSlop={8} accessibilityLabel="Swap from and to"><Text style={{ fontSize: 18, color: c.muted }}>⇅</Text></Pressable>} />
           </View>
 

@@ -173,8 +173,8 @@ for (const field of $$('.field.place')) {
   const choose = (p) => { close(); setPlace(role, { name: p.name, lat: p.lat, lon: p.lon }); };
   const render = () => {
     list.innerHTML = items.map((p, i) => `<li data-i="${i}" class="${i === active ? 'active' : ''}">
-      <span class="kind">${esc(p.type === 'STOP' ? 'Stop' : p.type === 'ADDRESS' ? 'Address' : p.type === 'SAVED' ? 'Saved' : 'Place')}</span>
-      <span>${esc(p.name)}<span class="detail">${esc(p.detail || '')}</span></span></li>`).join('');
+      <span class="kind">${esc(p.type === 'SAVED' ? 'Saved' : p.kind || (p.type === 'STOP' ? 'Stop' : p.type === 'ADDRESS' ? 'Address' : 'Place'))}</span>
+      <span>${esc(p.name)}<span class="detail">${esc([p.detail, p.distanceKm != null ? `${p.distanceKm} km away` : ''].filter(Boolean).join(' · '))}</span></span></li>`).join('');
     list.hidden = !items.length;
   };
 
@@ -190,7 +190,8 @@ for (const field of $$('.field.place')) {
     timer = setTimeout(async () => {
       const my = ++seq;
       try {
-        const res = await api(`geocode?q=${encodeURIComponent(q)}`);
+        const near = role === 'to' && state.from ? `&near=${state.from.lat.toFixed(4)},${state.from.lon.toFixed(4)}` : '';
+        const res = await api(`geocode?q=${encodeURIComponent(q)}${near}`);
         if (my !== seq) return;
         const seen = new Set();
         items = res.filter((r) => { const k = r.name + r.detail; if (seen.has(k)) return false; seen.add(k); return true; });

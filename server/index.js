@@ -14,6 +14,7 @@ import { pushRoutes } from './push.js';
 import { startNotifier } from './notifier.js';
 import { stations as bikeStations, nearest as nearestBikes } from './sources/bikeshare.js';
 import { goFares } from './fares.js';
+import { searchPlaces } from './sources/geocode.js';
 
 const app = express();
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -80,7 +81,11 @@ app.get('/api/alerts', route(async () => {
 app.get('/api/geocode', route(async (req) => {
   const q = String(req.query.q || '').trim();
   if (q.length < 3) return [];
-  return motis.geocode(q.slice(0, 120));
+  let near = null;
+  if (req.query.near) {
+    try { near = coord(req.query.near, 'near'); } catch { near = null; }
+  }
+  return searchPlaces(q.slice(0, 120), near);
 }));
 
 app.get('/api/reverse', route(async (req) => {

@@ -22,7 +22,7 @@ Needs Node 22+.
 | GO Transit + UP Express live times, vehicles, alerts | [Metrolinx Open Data API](https://api.openmetrolinx.com/OpenDataAPI/Help/Registration/en) | ✅ once a key is set | **Free key** |
 | Pearson arrivals/departures (gate, terminal, delays) | [AeroDataBox](https://rapidapi.com/aedbx-aedbx/api/aerodatabox) on RapidAPI | ✅ once a key is set | **Free/paid key** |
 | Current weather, forecast, weather warnings | Environment Canada MSC GeoMet | ✅ | No |
-| Address search | Transitous geocoder (OpenStreetMap) | — | No |
+| Address / place search | [Photon](https://photon.komoot.io) (OpenStreetMap) + Transitous: shops, gyms, "X and Y" intersections, "<store> <city>" searches, nearest results first | — | No |
 
 Route ranking (`server/rank.js`) scores every option by arrival time + transfers + walking, and:
 - weights walking more heavily in extreme cold or heat, rain or snow, or under an active weather warning, and advises against cycling in those conditions;

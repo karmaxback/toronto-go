@@ -25,7 +25,8 @@ export type PlanParams = {
 };
 
 export const api = {
-  geocode: (q: string) => get<Place[]>(`geocode?q=${encodeURIComponent(q)}`),
+  geocode: (q: string, near?: { lat: number; lon: number } | null) =>
+    get<Place[]>(`geocode?q=${encodeURIComponent(q)}${near ? `&near=${at(near)}` : ''}`),
   reverse: (p: { lat: number; lon: number }) => get<Place>(`reverse?at=${at(p)}`),
   plan: (p: PlanParams) => {
     const q = new URLSearchParams({
