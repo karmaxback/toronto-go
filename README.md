@@ -77,6 +77,17 @@ Platform notes:
 | `MOTIS_URL` | Point routing at your own MOTIS server instead of Transitous |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Optional: pin push keys (otherwise generated into `data/push.json`) |
 
+## Deploy (Render)
+
+`render.yaml` describes the whole setup: an always-on Starter web service in Ohio with a 1 GB disk mounted at `data/`.
+
+1. Push this repo to GitHub (private is fine).
+2. On [render.com](https://render.com): **New + → Blueprint**, connect GitHub, pick the repo.
+3. Fill in `CONTACT` (required by Transitous). Leave the API keys blank until you have them.
+4. Deploy. The app is served at `https://toronto-go-XXXX.onrender.com` with HTTPS.
+
+Every `git push` to `master` redeploys automatically. Add keys later under **Environment** in the Render dashboard; changing them restarts the app.
+
 ## Tests
 
 ```bash

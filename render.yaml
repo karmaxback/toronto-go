@@ -1,0 +1,25 @@
+# Render Blueprint: one-click deploy of Toronto Go.
+# In Render: New + -> Blueprint -> pick this GitHub repo. Fill in the secret values when asked.
+services:
+  - type: web
+    name: toronto-go
+    runtime: node
+    plan: starter          # always-on (~US$7/mo). The free plan sleeps, which would stop notifications.
+    region: ohio           # closest Render region to Toronto
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/status
+    autoDeploy: true       # every push to GitHub redeploys
+    disk:
+      name: toronto-go-data  # keeps push subscriptions, VAPID keys and the GO fare table across deploys
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: CONTACT         # website or email, sent to Transitous as their usage policy requires
+        sync: false
+      - key: METROLINX_API_KEY
+        sync: false
+      - key: AERODATABOX_RAPIDAPI_KEY
+        sync: false
