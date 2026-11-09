@@ -75,6 +75,9 @@ export type Departure = {
 };
 export type NearbyBoard = { stopId: string; name: string; lat: number; lon: number; distanceM: number; departures: Departure[] };
 
+export type Vehicle = { id: string; route: string | null; lat: number; lon: number; bearing: number | null; occupancy: string | null };
+export type VehiclesData = { ttc: Vehicle[]; go: Vehicle[] };
+
 export type BikeStation = { id: string; name: string; lat: number; lon: number; bikes: number; ebikes: number; docks: number; distanceM?: number };
 
 export type WeatherAlert = { id: string; name: string; severity: 'minor' | 'moderate' | 'severe'; area: string | null; text: string; type: string | null };

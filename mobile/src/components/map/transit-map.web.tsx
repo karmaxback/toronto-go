@@ -7,12 +7,14 @@ import { StyleSheet, View } from 'react-native';
 import { TORONTO, type TransitMapProps } from './types';
 
 /** Web map: Leaflet + OpenStreetMap tiles (same look as the original web app). */
-export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLongPress, style }: TransitMapProps) {
+export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLongPress, onViewChange, style }: TransitMapProps) {
   const host = useRef<ComponentRef<typeof View>>(null);
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
   const longPress = useRef(onLongPress);
   useEffect(() => { longPress.current = onLongPress; }, [onLongPress]);
+  const viewChange = useRef(onViewChange);
+  useEffect(() => { viewChange.current = onViewChange; }, [onViewChange]);
 
   // create the map once
   useEffect(() => {
@@ -26,6 +28,12 @@ export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLo
     }).addTo(m);
     layer.current = L.layerGroup().addTo(m);
     m.on('contextmenu', (e: L.LeafletMouseEvent) => longPress.current?.(e.latlng.lat, e.latlng.lng));
+    const report = () => {
+      const b = m.getBounds();
+      viewChange.current?.({ minLat: b.getSouth(), maxLat: b.getNorth(), minLon: b.getWest(), maxLon: b.getEast(), zoom: m.getZoom() });
+    };
+    m.on('moveend', report);
+    setTimeout(report, 0);
     const ro = new ResizeObserver(() => m.invalidateSize());
     ro.observe(el);
     map.current = m;

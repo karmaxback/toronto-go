@@ -1,5 +1,8 @@
 import { apiBase } from './config';
-import type { AirportData, AlertsData, BikeStation, NearbyBoard, Place, PlanResult, WeatherData } from './types';
+import type { AirportData, AlertsData, BikeStation, NearbyBoard, Place, PlanResult, VehiclesData, WeatherData } from './types';
+
+type Box = { minLat: number; minLon: number; maxLat: number; maxLon: number };
+const bbox = (b: Box) => [b.minLon, b.minLat, b.maxLon, b.maxLat].map((n) => n.toFixed(4)).join(',');
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${apiBase()}/api/${path}`);
@@ -20,6 +23,7 @@ export type PlanParams = {
   pref?: string;
   rider?: string;
   accessible?: boolean;
+  coach?: boolean;
   time?: Date | null;
   arriveBy?: boolean;
 };
@@ -35,6 +39,7 @@ export const api = {
       pref: p.pref || 'balanced',
       rider: p.rider || 'adult',
       accessible: String(Boolean(p.accessible)),
+      coach: String(Boolean(p.coach)),
     });
     if (p.time) {
       q.set('time', p.time.toISOString());
@@ -44,6 +49,8 @@ export const api = {
   },
   nearby: (p: { lat: number; lon: number }, radius = 450) => get<NearbyBoard[]>(`nearby?at=${at(p)}&radius=${radius}`),
   bikesNear: (p: { lat: number; lon: number }) => get<BikeStation[]>(`bikeshare/near?at=${at(p)}`),
+  vehicles: (b: Box) => get<VehiclesData>(`vehicles?bbox=${bbox(b)}`),
+  bikeStations: (b: Box) => get<BikeStation[]>(`bikeshare?bbox=${bbox(b)}`),
   weather: () => get<WeatherData>('weather'),
   alerts: () => get<AlertsData>('alerts'),
   airport: () => get<AirportData>('airport'),

@@ -65,3 +65,24 @@ test('cannot touch another subscriber without their endpoint', { skip: !up && 'd
   const r = await fetch(`${BASE}/api/push/prefs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: 'https://push.invalid/guess', prefs: {} }) });
   assert.equal(r.status, 404);
 });
+
+test('phone app: subscribe with an Expo push token, watch a trip, unsubscribe', { skip: !up && 'dev server not running' }, async () => {
+  const expoToken = `ExponentPushToken[${crypto.randomBytes(11).toString('base64url')}]`;
+  const call = (path, body) => fetch(`${BASE}/api/push/${path}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expoToken, ...body }),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }));
+
+  let r = await call('subscribe', { expoToken: 'not-a-token' });
+  assert.equal(r.status, 400, 'bad token rejected');
+  r = await call('subscribe', { platform: 'ios', prefs: { weather: true, routes: '504' } });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.prefs.routes, ['504']);
+  r = await call('watch', { watch: { name: 'Work', leaveAt: '08:00', days: [1, 2, 3, 4, 5], from: { lat: 43.65, lon: -79.38 }, to: { lat: 43.7, lon: -79.4 } } });
+  assert.equal(r.body.watches.length, 1);
+  r = await call('test');
+  assert.equal(r.status, 502, 'fake token is rejected by Expo, not silently accepted');
+  r = await call('unsubscribe');
+  assert.equal(r.status, 200);
+  r = await call('me');
+  assert.equal(r.status, 404);
+});

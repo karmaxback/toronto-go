@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NotificationsCard } from '@/components/notifications-card';
 import { Card, Note, SectionTitle, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { usePolling } from '@/lib/hooks';
@@ -27,6 +28,7 @@ export default function AlertsScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
       <T bold size={22}>Alerts</T>
       {error ? <Note tone="danger">{error}</Note> : null}
+      <View style={{ marginTop: 10 }}><NotificationsCard /></View>
 
       <SectionTitle>Weather</SectionTitle>
       {cur ? (

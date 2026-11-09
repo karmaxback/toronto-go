@@ -11,6 +11,21 @@ export const minsUntil = (iso: string) => Math.round((Date.parse(iso) - Date.now
 export const durLabel = (m: number) =>
   m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
 
+const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, weekday: 'long' });
+const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+/** "Leave now" / "Leave in 12 min" / "Leave at 6:40 pm" / "Leave tomorrow at 9:05 am" / "Leave Friday at 8:15 am" */
+export function leaveLabel(iso: string) {
+  const m = minsUntil(iso);
+  if (m <= 0) return 'Leave now';
+  if (m < 90) return `Leave in ${durLabel(m)}`;
+  const today = dateKey.format(new Date());
+  const tomorrow = dateKey.format(new Date(Date.now() + 86_400_000));
+  const d = dateKey.format(new Date(iso));
+  const day = d === today ? '' : d === tomorrow ? 'tomorrow ' : `${dayFmt.format(new Date(iso))} `;
+  return `Leave ${day}at ${fmtTime(iso)}`;
+}
+
 export function inLabel(iso: string) {
   const m = minsUntil(iso);
   if (m <= 0) return 'Now';

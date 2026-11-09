@@ -1,23 +1,28 @@
-import { Fragment } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Fragment, useState } from 'react';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { cleanHeadsign, delayText, durLabel, fareText, fmtTime, minsUntil, modeName, money, plural } from '@/lib/format';
+import { cleanHeadsign, delayText, durLabel, fareText, fmtTime, leaveLabel, modeName, money, plural } from '@/lib/format';
 import { useColors } from '@/lib/theme';
-import type { Leg, Option } from '@/lib/types';
+import type { Leg, Option, Place } from '@/lib/types';
 
-import { Card, LegChip, LiveDot, T } from './ui';
+import { Button, Card, LegChip, LiveDot, T } from './ui';
+import { WatchForm } from './watch-form';
 
 /** One route option: summary always, step-by-step when selected. */
-export function OptionCard({ o, selected, onPress, destName }: { o: Option; selected: boolean; onPress: () => void; destName: string }) {
+export type WatchContext = { from: Place; to: Place; pref: string; accessible: boolean; onDone: (msg: string) => void };
+
+export function OptionCard({ o, selected, onPress, destName, watch }: { o: Option; selected: boolean; onPress: () => void; destName: string; watch?: WatchContext }) {
   const c = useColors();
   const first = o.legs.find((l) => l.transit);
-  const leaveMins = minsUntil(o.start);
   const title = o.kind === 'transit' ? '' : `${o.kind === 'bikeshare' ? 'Bike Share' : modeName(o.kind.toUpperCase())} · `;
   const elevators = (o.accessIssues ?? []).filter((a) => a.kind === 'elevator');
   const chips = o.legs.map((l, i) => ({ l, i })).filter(({ l }) => l.transit || l.bikeshare || l.durationMin >= 1);
 
   return (
-    <Card selected={selected} onPress={onPress} style={{ marginTop: 10 }}>
+    <Card selected={selected} style={{ marginTop: 10 }}>
+      {/* Only the summary is the tap target, so buttons and links in the steps aren't nested inside it. */}
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ expanded: selected }}
+        accessibilityHint={selected ? undefined : 'Shows this route on the map with step-by-step directions'}>
       {(o.tags?.length ?? 0) > 0 && (
         <View style={styles.tags}>
           {o.tags!.map((t) => (
@@ -38,7 +43,7 @@ export function OptionCard({ o, selected, onPress, destName }: { o: Option; sele
           <>
             <View style={styles.inline}>
               {first.live ? <LiveDot /> : null}
-              <T bold color={first.live ? c.live : c.ink} size={13}>{leaveMins <= 0 ? 'Leave now' : `Leave in ${durLabel(leaveMins)}`}</T>
+              <T bold color={first.live ? c.live : c.ink} size={13}>{leaveLabel(o.start)}</T>
             </View>
             <T muted size={12.5}>
               {modeName(first.mode)} {first.route ?? ''} at {fmtTime(first.live?.time || first.start)} · {first.live ? delayText(first.live.delayMin) : 'scheduled'}
@@ -68,10 +73,19 @@ export function OptionCard({ o, selected, onPress, destName }: { o: Option; sele
       {elevators.length > 0 && (
         <T size={12.5} color={c.dangerInk} style={{ marginTop: 6 }}>♿ Elevator out at {[...new Set(elevators.map((a) => a.station))].join(', ')}</T>
       )}
+      </Pressable>
 
       {selected && <Steps o={o} destName={destName} />}
+      {selected && watch && o.kind === 'transit' ? <WatchButton o={o} watch={watch} /> : null}
     </Card>
   );
+}
+
+function WatchButton({ o, watch }: { o: Option; watch: WatchContext }) {
+  const [open, setOpen] = useState(false);
+  if (!open) return <Button title="🔔 Watch this trip: remind me & alert me to delays" kind="ghost" onPress={() => setOpen(true)} style={{ marginTop: 10 }} />;
+  return <WatchForm from={watch.from} to={watch.to} startIso={o.start} pref={watch.pref} accessible={watch.accessible}
+    onDone={(msg) => { setOpen(false); watch.onDone(msg); }} />;
 }
 
 function Steps({ o, destName }: { o: Option; destName: string }) {

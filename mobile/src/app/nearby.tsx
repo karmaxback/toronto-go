@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import TransitMap from '@/components/map/transit-map';
 import type { MapMarker } from '@/components/map/types';
 import { PlaceInput } from '@/components/place-input';
 import { Card, LiveDot, Note, T, modeIcon } from '@/components/ui';
+import { WeatherBanner } from '@/components/weather-chip';
 import { api } from '@/lib/api';
 import { cleanHeadsign, fmtTime, inLabel } from '@/lib/format';
 import { usePolling } from '@/lib/hooks';
@@ -22,6 +24,15 @@ export default function NearbyScreen() {
   const insets = useSafeAreaInsets();
   const [at, setAt] = useState<Spot | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
+
+  // "Departures" from a long-press on the Plan map
+  const params = useLocalSearchParams<{ lat?: string; lon?: string }>();
+  const paramKey = params.lat && params.lon ? `${params.lat},${params.lon}` : '';
+  const [seenParam, setSeenParam] = useState('');
+  if (paramKey && paramKey !== seenParam) {
+    setSeenParam(paramKey);
+    setAt({ lat: Number(params.lat), lon: Number(params.lon), name: 'Pinned spot', source: 'map' });
+  }
 
   const { data, error: loadError, refreshing, refresh } = usePolling<[NearbyBoard[], BikeStation[]] | null>(
     async () => (at ? Promise.all([api.nearby(at), api.bikesNear(at).catch(() => [] as BikeStation[])]) : null),
@@ -65,6 +76,7 @@ export default function NearbyScreen() {
         contentContainerStyle={[styles.panel, { paddingBottom: insets.bottom + 30 }]}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+        <WeatherBanner />
         <View style={[styles.search, { borderColor: c.line, backgroundColor: c.card }]}>
           <PlaceInput
             role="from"

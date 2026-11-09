@@ -81,9 +81,44 @@ function cleanWatch(w = {}) {
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status });
 
-/** Send one notification. Removes subscriptions the push service says are gone. */
+const EXPO_PUSH = 'https://exp.host/--/api/v2/push/send';
+export const isExpoToken = (t) => typeof t === 'string' && /^Expo(nent)?PushToken\[[^\]]{10,}\]$/.test(t);
+
+/** Phones (iOS/Android apps) get notifications through Expo's push service. */
+async function sendExpo(sub, payload, { urgency, ttl }) {
+  const res = await fetch(EXPO_PUSH, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: sub.expoToken,
+      title: payload.title,
+      body: payload.body,
+      data: { url: payload.url || '/', tag: payload.tag || null },
+      sound: 'default',
+      priority: urgency === 'high' ? 'high' : 'default',
+      channelId: 'default',
+      ttl,
+      ...(payload.tag ? { collapseId: payload.tag } : {}),
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(body.errors?.[0]?.message || `Expo push ${res.status}`), { statusCode: res.status });
+  const ticket = Array.isArray(body.data) ? body.data[0] : body.data;
+  if (ticket?.status === 'error') {
+    const gone = ticket.details?.error === 'DeviceNotRegistered';
+    throw Object.assign(new Error(ticket.message || 'Expo push error'), { statusCode: gone ? 410 : 400 });
+  }
+}
+
+/** Send one notification (browser Web Push or phone Expo push). Removes subscriptions that are gone. */
 export async function send(sub, payload, { urgency = 'normal', ttl = 900 } = {}) {
   try {
+    if (sub.expoToken) {
+      await sendExpo(sub, payload, { urgency, ttl });
+      sub.lastSent = new Date().toISOString();
+      return true;
+    }
     await webpush.sendNotification(sub.subscription, JSON.stringify(payload), { TTL: ttl, urgency });
     sub.lastSent = new Date().toISOString();
     return true;
@@ -124,7 +159,8 @@ const MAX_SUBS = 5000;
 const MAX_WATCHES_PER_SUB = 5;
 
 function findSub(req) {
-  const endpoint = req.body?.endpoint || req.body?.subscription?.endpoint;
+  // browsers identify with their push endpoint URL, phone apps with their Expo push token
+  const endpoint = req.body?.endpoint || req.body?.subscription?.endpoint || req.body?.expoToken;
   if (!endpoint) throw bad('endpoint required');
   const sub = db.subs[subId(endpoint)];
   if (!sub) throw bad('Not subscribed', 404);
@@ -134,6 +170,23 @@ function findSub(req) {
 pushRoutes.get('/key', (req, res) => res.json({ publicKey: db.vapid.publicKey }));
 
 pushRoutes.post('/subscribe', handle(async (req) => {
+  // Phone app: { expoToken: "ExponentPushToken[...]" }. The token is the secret, like a browser endpoint.
+  const expoToken = req.body?.expoToken;
+  if (expoToken) {
+    if (!isExpoToken(expoToken)) throw bad('Invalid Expo push token');
+    const id = subId(expoToken);
+    const existing = db.subs[id];
+    if (!existing && Object.keys(db.subs).length >= MAX_SUBS) throw bad('Subscription limit reached', 503);
+    db.subs[id] = {
+      id,
+      expoToken,
+      platform: String(req.body.platform || 'app').slice(0, 10),
+      prefs: cleanPrefs(req.body.prefs ?? existing?.prefs ?? DEFAULT_PREFS),
+      created: existing?.created || new Date().toISOString(),
+    };
+    save();
+    return view(db.subs[id]);
+  }
   const s = req.body?.subscription;
   if (!s?.endpoint || !/^https:\/\//.test(s.endpoint) || !s.keys?.p256dh || !s.keys?.auth) throw bad('Invalid push subscription');
   const id = subId(s.endpoint);
@@ -183,7 +236,7 @@ pushRoutes.post('/test', handle(async (req) => {
 }));
 
 pushRoutes.post('/unsubscribe', handle(async (req) => {
-  const endpoint = req.body?.endpoint;
+  const endpoint = req.body?.endpoint || req.body?.expoToken;
   if (endpoint && db.subs[subId(endpoint)]) removeSub(subId(endpoint));
   return { ok: true };
 }));

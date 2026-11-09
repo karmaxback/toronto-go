@@ -15,6 +15,8 @@ export type MapMarker = {
   size?: number;
 };
 
+export type MapViewport = { minLat: number; minLon: number; maxLat: number; maxLon: number; zoom: number };
+
 export type TransitMapProps = {
   lines?: MapLine[];
   markers?: MapMarker[];
@@ -22,6 +24,8 @@ export type TransitMapProps = {
   fit?: LatLon[];
   fitKey?: string;
   onLongPress?: (lat: number, lon: number) => void;
+  /** called after the user pans/zooms (and once at start) with the visible area */
+  onViewChange?: (v: MapViewport) => void;
   style?: StyleProp<ViewStyle>;
 };
 

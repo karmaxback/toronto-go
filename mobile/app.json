@@ -46,6 +46,13 @@
         {
           "locationWhenInUsePermission": "Toronto Go uses your location to find departures near you and plan trips from where you are."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0f6b5c",
+          "defaultChannel": "default"
+        }
       ]
     ],
     "experiments": {

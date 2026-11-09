@@ -5,7 +5,7 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import { TORONTO, type TransitMapProps } from './types';
 
 /** iOS (Apple Maps) and Android (Google Maps) via react-native-maps. Web uses transit-map.web.tsx. */
-export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLongPress, style }: TransitMapProps) {
+export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLongPress, onViewChange, style }: TransitMapProps) {
   const ref = useRef<MapView>(null);
 
   useEffect(() => {
@@ -30,7 +30,12 @@ export default function TransitMap({ lines = [], markers = [], fit, fitKey, onLo
       showsUserLocation
       showsCompass={false}
       toolbarEnabled={false}
-      onLongPress={(e) => onLongPress?.(e.nativeEvent.coordinate.latitude, e.nativeEvent.coordinate.longitude)}>
+      onLongPress={(e) => onLongPress?.(e.nativeEvent.coordinate.latitude, e.nativeEvent.coordinate.longitude)}
+      onRegionChangeComplete={(r) => onViewChange?.({
+        minLat: r.latitude - r.latitudeDelta / 2, maxLat: r.latitude + r.latitudeDelta / 2,
+        minLon: r.longitude - r.longitudeDelta / 2, maxLon: r.longitude + r.longitudeDelta / 2,
+        zoom: Math.log2(360 / Math.max(r.longitudeDelta, 1e-6)),
+      })}>
       {lines.map((l) => (
         <Polyline
           key={l.id}

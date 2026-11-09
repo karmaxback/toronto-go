@@ -1,6 +1,15 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+/** Public address of the website, used for shareable trip links. */
+export function webBase(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_WEB_URL;
+  if (fromEnv) return fromEnv.replace(/\/+$/, '');
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.port !== '8081') return window.location.origin;
+  const api = apiBase();
+  return api || 'http://localhost:3000';
+}
+
 /**
  * Where the Toronto Go server lives.
  *  - EXPO_PUBLIC_API_URL wins if set (e.g. https://toronto-go-xxxx.onrender.com for store builds).
