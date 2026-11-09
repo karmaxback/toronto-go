@@ -1,0 +1,21 @@
+{
+  "name": "toronto-go",
+  "version": "0.1.0",
+  "description": "Live Toronto trip planner: TTC, GO Transit, UP Express, VIA Rail, Pearson flights and Environment Canada weather.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "dev": "node --watch --env-file-if-exists=.env server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "gtfs-realtime-bindings": "^2.2.0",
+    "web-push": "^4.0.0"
+  }
+}

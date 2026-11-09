@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Toronto Go</title>
+  <meta name="description" content="Live Toronto trip planner: TTC, GO Transit, UP Express, VIA Rail, Pearson flights and weather alerts." />
+  <meta name="theme-color" content="#0f6b5c" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="panel" id="panel">
+      <header class="top">
+        <div class="brand">
+          <span class="logo" aria-hidden="true"></span>
+          <div>
+            <h1>Toronto Go</h1>
+            <p class="sub">TTC · GO · UP Express · VIA · Pearson</p>
+          </div>
+        </div>
+        <button class="wx-chip" id="wxChip" type="button" title="Weather in Toronto">
+          <span id="wxTemp">--°</span>
+          <span class="wx-cond" id="wxCond">Weather</span>
+        </button>
+      </header>
+
+      <div class="banner" id="wxBanner" hidden></div>
+
+      <nav class="tabs" role="tablist">
+        <button role="tab" class="tab active" data-tab="plan" aria-selected="true">Plan</button>
+        <button role="tab" class="tab" data-tab="nearby" aria-selected="false">Nearby</button>
+        <button role="tab" class="tab" data-tab="airport" aria-selected="false">Airport</button>
+        <button role="tab" class="tab" data-tab="alerts" aria-selected="false">Alerts <span class="count" id="alertCount" hidden></span></button>
+      </nav>
+
+      <div class="scroll">
+        <!-- ===================== PLAN ===================== -->
+        <section class="view active" id="view-plan">
+          <form id="planForm" autocomplete="off">
+            <div class="od">
+              <div class="field place" data-role="from">
+                <span class="dot from" aria-hidden="true"></span>
+                <input id="fromInput" type="text" placeholder="From: address, place or stop" aria-label="From" />
+                <button type="button" class="icon-btn" id="locateBtn" title="Use my location" aria-label="Use my location">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7.5" fill="none"/></svg>
+                </button>
+                <ul class="suggest" hidden></ul>
+              </div>
+              <div class="field place" data-role="to">
+                <span class="dot to" aria-hidden="true"></span>
+                <input id="toInput" type="text" placeholder="To: where are you going?" aria-label="To" />
+                <button type="button" class="icon-btn" id="swapBtn" title="Swap" aria-label="Swap from and to">
+                  <svg viewBox="0 0 24 24"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg>
+                </button>
+                <ul class="suggest" hidden></ul>
+              </div>
+            </div>
+
+            <div class="saved" id="savedRow"></div>
+
+            <div class="row">
+              <select id="whenSel" aria-label="When">
+                <option value="now">Leave now</option>
+                <option value="depart">Depart at…</option>
+                <option value="arrive">Arrive by…</option>
+              </select>
+              <input id="whenTime" type="datetime-local" hidden aria-label="Date and time" />
+              <select id="prefSel" aria-label="Preference">
+                <option value="balanced">Best overall</option>
+                <option value="fastest">Fastest</option>
+                <option value="fewer_transfers">Fewer transfers</option>
+                <option value="less_walking">Less walking</option>
+              </select>
+            </div>
+            <div class="row checks">
+              <label><input type="checkbox" id="accessible" /> Step-free / wheelchair</label>
+              <label><input type="checkbox" id="coach" /> Include intercity coaches</label>
+            </div>
+            <button class="primary" type="submit" id="planBtn">Find routes</button>
+          </form>
+
+          <div id="planNotes"></div>
+          <div id="results" class="results"></div>
+          <div class="empty" id="planEmpty">
+            <p><strong>Where to?</strong> Type an address, or right-click / long-press the map to set a start or destination.</p>
+            <p class="muted">Routes use TTC live predictions, schedules for GO, UP Express, VIA, MiWay, YRT and more, and are re-ranked for today's weather and service alerts.</p>
+          </div>
+        </section>
+
+        <!-- ===================== NEARBY ===================== -->
+        <section class="view" id="view-nearby">
+          <div class="row between">
+            <p class="muted small" id="nearbyWhere">Departures around the map centre.</p>
+            <div class="row tight">
+              <button class="ghost" id="nearbyMe" type="button">Near me</button>
+              <button class="ghost" id="nearbyMap" type="button">Map centre</button>
+            </div>
+          </div>
+          <div id="nearbyList"></div>
+        </section>
+
+        <!-- ===================== AIRPORT ===================== -->
+        <section class="view" id="view-airport">
+          <div class="quick">
+            <button class="ghost" data-goto="T1" type="button">Route me to Terminal 1</button>
+            <button class="ghost" data-goto="T3" type="button">Route me to Terminal 3</button>
+          </div>
+          <h3>UP Express</h3>
+          <div class="up-grid" id="upBoard"></div>
+          <h3>Pearson flights <span class="muted small" id="flightUpdated"></span></h3>
+          <div class="row">
+            <div class="seg" id="flightDir">
+              <button class="active" data-dir="departures" type="button">Departures</button>
+              <button data-dir="arrivals" type="button">Arrivals</button>
+            </div>
+            <input id="flightSearch" type="search" placeholder="Flight, airline or city" aria-label="Search flights" />
+          </div>
+          <div id="flightList"></div>
+        </section>
+
+        <!-- ===================== ALERTS ===================== -->
+        <section class="view" id="view-alerts">
+          <div id="notifyBox" class="notify"></div>
+          <h3>Weather</h3>
+          <div id="wxDetail"></div>
+          <div class="row between">
+            <h3>Transit service alerts</h3>
+            <input id="alertSearch" type="search" placeholder="Filter (e.g. Line 2, 504)" aria-label="Filter alerts" />
+          </div>
+          <div id="alertList"></div>
+        </section>
+      </div>
+
+      <footer class="attrib">
+        Data: <a href="https://gtfsrt.ttc.ca/" target="_blank" rel="noopener">TTC</a>,
+        <a href="https://www.metrolinx.com/en/about-us/open-data" target="_blank" rel="noopener">Metrolinx</a>,
+        <a href="https://weather.gc.ca/" target="_blank" rel="noopener">Environment Canada</a>.
+        Routing <a href="https://transitous.org/sources/" target="_blank" rel="noopener">Transitous</a>
+        (<a href="https://transitous.org/donate/" target="_blank" rel="noopener">donate</a>).
+        Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
+      </footer>
+    </aside>
+
+    <main class="mapwrap">
+      <div id="map" aria-label="Map"></div>
+      <div class="map-ctl">
+        <label class="toggle"><input type="checkbox" id="vehToggle" checked /> Live vehicles</label>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
