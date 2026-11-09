@@ -29,14 +29,25 @@ function isSerious(alert, leg) {
   return alert.stops.some((s) => mine.includes(s));
 }
 
+/** Elevator/escalator outages at the stations where this leg boards or alights. */
+function accessForLeg(leg, access) {
+  if (!access?.length) return [];
+  const ids = [leg.from?.stopId, leg.to?.stopId].map(stripFeedId).filter((s) => s?.agency === 'ttc').map((s) => s.raw);
+  const names = [leg.from?.name, leg.to?.name].filter(Boolean);
+  // "Pape" must match "Pape Station - …" but not "Papermill" or "Bayview" for "Bay"
+  const atStation = (station) => names.some((n) => new RegExp(`^${station.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} Station\\b`, 'i').test(n));
+  return access.filter((a) => a.stops.some((s) => ids.includes(s)) || (a.station && atStation(a.station)));
+}
+
 /** Simplify a MOTIS itinerary for the UI and attach live times + alerts. */
-function shapeItinerary(it, { live, alerts, kind }) {
+function shapeItinerary(it, { live, alerts, access, kind }) {
   const legs = it.legs.map((l) => {
     const transit = isTransit(l);
     const liveDep = transit ? matchLive(live, {
       stopId: l.from?.stopId, routeId: l.routeId, tripId: l.tripId, scheduled: l.scheduledStartTime || l.startTime,
     }) : null;
     const legAlerts = transit ? alertsForLeg(l, alerts) : [];
+    const legAccess = transit ? accessForLeg(l, access) : [];
     return {
       mode: l.mode,
       transit,
@@ -60,9 +71,14 @@ function shapeItinerary(it, { live, alerts, kind }) {
       fareUrl: l.agencyFareUrl || null,
       alerts: legAlerts.map((a) => ({ id: a.id, header: a.header, effect: a.effect, serious: isSerious(a, l) })),
       serious: legAlerts.some((a) => isSerious(a, l)),
+      access: legAccess.map((a) => ({ station: a.station, kind: a.kind, header: a.header })),
       cancelled: Boolean(l.cancelled),
+      fromStopId: l.from?.stopId || null,
+      toStopId: l.to?.stopId || null,
     };
   });
+  const accessIssues = [];
+  for (const l of legs) for (const a of l.access) if (!accessIssues.some((x) => x.header === a.header)) accessIssues.push(a);
 
   // If the first vehicle is running late/early per live data, shift the whole trip's departure.
   const firstTransit = legs.find((l) => l.transit);
@@ -83,6 +99,7 @@ function shapeItinerary(it, { live, alerts, kind }) {
     live: legs.some((l) => l.live),
     hasAlerts: legs.some((l) => l.alerts.length),
     serious: legs.some((l) => l.serious || l.cancelled),
+    accessIssues,
     needsTicket: legs.some((l) => ['COACH', 'LONG_DISTANCE', 'HIGHSPEED_RAIL', 'NIGHT_RAIL'].includes(l.mode)),
   };
 }
@@ -98,12 +115,13 @@ const PREFS = {
  * Rank all options. Score = minutes until arrival + penalties for transfers, walking
  * (heavier in bad weather), service alerts, and tickets/reservations.
  */
-export function rankPlan(plan, { live, alerts, impact, pref = 'balanced', departAt }) {
+export function rankPlan(plan, { live, alerts, access = [], accessible = false, impact, pref = 'balanced', departAt, extra = [] }) {
   const p = PREFS[pref] || PREFS.balanced;
   const t0 = departAt ? Date.parse(departAt) : Date.now();
   const options = [
-    ...(plan.itineraries || []).map((it) => shapeItinerary(it, { live, alerts, kind: 'transit' })),
-    ...(plan.direct || []).map((it) => shapeItinerary(it, { live, alerts, kind: (it.legs[0]?.mode || 'walk').toLowerCase() })),
+    ...(plan.itineraries || []).map((it) => shapeItinerary(it, { live, alerts, access, kind: 'transit' })),
+    ...(plan.direct || []).map((it) => shapeItinerary(it, { live, alerts, access, kind: (it.legs[0]?.mode || 'walk').toLowerCase() })),
+    ...extra, // pre-shaped options built elsewhere (e.g. Bike Share)
   ];
 
   for (const o of options) {
@@ -111,7 +129,12 @@ export function rankPlan(plan, { live, alerts, impact, pref = 'balanced', depart
     let score = (Date.parse(o.end) - t0) / 60000;
     score += o.transfers * p.transfer;
     score += o.walkMin * (p.walk + (impact.walkPenalty - 1));
-    if (o.kind === 'bike') {
+    const elevators = (o.accessIssues || []).filter((a) => a.kind === 'elevator');
+    if (accessible && elevators.length) {
+      score += 45;
+      reasons.push(`Elevator out of service at ${[...new Set(elevators.map((a) => a.station))].join(', ')}: not step-free right now`);
+    }
+    if (o.kind === 'bike' || o.kind === 'bikeshare') {
       const bikeMin = o.durationMin;
       if (!impact.bikeOk) { score += 25 + bikeMin * 0.5; reasons.push('Weather is poor for cycling'); }
     }

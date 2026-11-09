@@ -153,6 +153,7 @@ export function tripPushes(w, plan, st, now) {
     ...o.legs.flatMap((l) => l.alerts.filter((a) => a.serious).map((a) => a.header)),
     ...(plan.weather?.impact?.notes || []),
     ...(delay >= 5 ? [`${legLabel(first)} is running ${delay} min late`] : []),
+    ...(w.accessible ? (o.accessIssues || []).filter((a) => a.kind === 'elevator').map((a) => a.header) : []),
   ];
 
   // 1) Heads-up as soon as the window opens, only if something is off.

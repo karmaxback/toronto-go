@@ -12,6 +12,8 @@ import { cached } from './cache.js';
 import { allAlerts, planTrip } from './planner.js';
 import { pushRoutes } from './push.js';
 import { startNotifier } from './notifier.js';
+import { stations as bikeStations, nearest as nearestBikes } from './sources/bikeshare.js';
+import { goFares } from './fares.js';
 
 const app = express();
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -169,7 +171,31 @@ app.get('/api/plan', route(async (req) => {
     pref: String(req.query.pref || 'balanced'),
     accessible: req.query.accessible === 'true',
     coach: req.query.coach === 'true',
+    rider: String(req.query.rider || 'adult'),
   });
+}));
+
+// ---------------------------------------------------------------- Bike Share Toronto
+app.get('/api/bikeshare', route(async (req) => {
+  const [minLon, minLat, maxLon, maxLat] = String(req.query.bbox || '').split(',').map(Number);
+  if (![minLon, minLat, maxLon, maxLat].every(Number.isFinite)) throw bad('bbox=minLon,minLat,maxLon,maxLat required');
+  const all = await bikeStations();
+  const c = { lat: (minLat + maxLat) / 2, lon: (minLon + maxLon) / 2 };
+  const d = (s) => (s.lat - c.lat) ** 2 + ((s.lon - c.lon) * 0.72) ** 2;
+  return all
+    .filter((s) => s.lat >= minLat && s.lat <= maxLat && s.lon >= minLon && s.lon <= maxLon)
+    .sort((a, b) => d(a) - d(b))
+    .slice(0, 400); // closest to the centre first, so a busy view never has holes in the middle
+}));
+
+app.get('/api/bikeshare/near', route(async (req) => {
+  const at = coord(req.query.at, 'at');
+  const [withBikes, withDocks] = await Promise.all([
+    nearestBikes(at, 'bikes', { radius: 600, limit: 4 }),
+    nearestBikes(at, 'docks', { radius: 600, limit: 4 }),
+  ]);
+  const byId = new Map([...withBikes, ...withDocks].map((s) => [s.id, s]));
+  return [...byId.values()].sort((a, b) => a.distanceM - b.distanceM).slice(0, 4);
 }));
 
 // ---------------------------------------------------------------- airport
@@ -214,6 +240,7 @@ async function upDepartures(at, stopPrefix) {
 app.use('/api/push', pushRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 startNotifier();
+goFares(); // warm the GO fare table (downloads ~10 MB on first run, then weekly)
 
 app.listen(config.port, () => {
   console.log(`Toronto Go running at http://localhost:${config.port}`);

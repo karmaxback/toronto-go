@@ -31,6 +31,24 @@ Route ranking (`server/rank.js`) scores every option by arrival time + transfers
 
 Other features: saved Home/Work, recent destinations, shareable trip links (`?from=…&to=…`), "Departures near me", one-tap "Route me to Pearson T1/T3", dark mode, phone layout.
 
+### Fares (`server/fares.js`)
+Every route shows an estimated fare for paying with PRESTO or a debit/credit tap, for adult, youth, senior or child (chosen in the Plan form and remembered).
+- **TTC:** $3.30 adult / $2.35 youth / $2.25 senior, 12 and under free. One fare covers TTC transfers.
+- **GO:** station-to-station fares from GO's own published fare table (downloaded weekly into `data/go-fares.json`), less the PRESTO discount (adult 15.7%, youth 40%, senior 55%).
+- **UP Express:** Pearson trips $9.25 adult / $5.80 senior; shorter UP trips use the GO table.
+- **One Fare:** TTC is free when connecting with GO; TTC + MiWay/YRT/Brampton/Durham is charged once. UP Express is not part of One Fare.
+- VIA, intercity coaches and other local agencies show as "not included", and the total is marked with a `+`.
+- Prices are in `FARES` at the top of `server/fares.js`. Update them when agencies change fares.
+
+### Bike Share Toronto (`server/sources/bikeshare.js`)
+Live station data from the official GBFS feed: a **Bike Share** map layer (green = bikes available, orange = low, grey = empty), the nearest stations with bike/e-bike/dock counts in **Nearby**, and a **Bike Share** trip option. That option uses the closest station with bikes and the closest station near your destination with free docks, with backup stations listed and a pay-as-you-go price taken from the live pricing feed. Ride times are estimated from distance.
+
+### Elevator & escalator outages
+TTC's accessibility feed is checked every 2 minutes. Outages show on the steps of any route using that station and in the **Alerts** tab. With **Step-free / wheelchair** on, routes through a station with a broken elevator are pushed down and flagged, and watched step-free trips get a heads-up notification.
+
+### Next way home
+Once **Home** is saved, a card at the top of the Plan tab shows the best live route home from your current location (or your start point), refreshing every 2 minutes for up to ~30 minutes. It loads automatically when location is already allowed. The installed app also gets **Go home** and **Nearby** home-screen shortcuts.
+
 ## Push notifications
 
 Turn them on in the **Alerts** tab. Users get:
@@ -93,6 +111,4 @@ TTC's live feed uses different trip IDs from its published schedule, so `live.js
 ## Next ideas
 - Deploy over HTTPS so phones can install it (it's already an installable PWA)
 - Move `data/push.json` to a database once there are thousands of users
-- Bike Share Toronto live dock availability (GBFS, free)
-- Fare estimates (PRESTO / GO fare tables)
 - Live traffic for the driving option (needs a paid provider)

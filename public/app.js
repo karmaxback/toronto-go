@@ -95,6 +95,7 @@ const layers = {
   ends: L.layerGroup().addTo(map),
   stops: L.layerGroup().addTo(map),
   vehicles: L.layerGroup().addTo(map),
+  bikes: L.layerGroup().addTo(map),
 };
 
 const endIcon = (cls) => L.divIcon({ className: '', html: `<div style="width:16px;height:16px;border-radius:${cls === 'to' ? '3px' : '50%'};background:var(--${cls});border:3px solid #fff;box-shadow:0 1px 4px rgb(0 0 0/.4)"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
@@ -264,6 +265,7 @@ function savedPlaces() {
 }
 function renderSaved() {
   const saved = store.get('saved', {});
+  if (typeof renderHome === 'function' && $('#homeCard')) setTimeout(renderHome);
   const row = $('#savedRow');
   const pills = ['Home', 'Work'].map((label) => saved[label]
     ? `<button class="pill" type="button" data-go="${label}" title="Route to ${label} (right-click to remove)">${label === 'Home' ? '⌂' : '◼'} ${label}</button>`
@@ -318,7 +320,9 @@ $('#whenSel').addEventListener('change', () => {
     t.value = local;
   }
 });
-for (const id of ['#prefSel', '#accessible', '#coach', '#whenTime']) {
+$('#riderSel').value = store.get('rider', 'adult');
+$('#riderSel').addEventListener('change', () => store.set('rider', $('#riderSel').value));
+for (const id of ['#prefSel', '#accessible', '#coach', '#whenTime', '#riderSel']) {
   $(id).addEventListener('change', () => { if (state.from && state.to) planTrip(); });
 }
 $('#planForm').addEventListener('submit', (e) => {
@@ -338,6 +342,7 @@ async function planTrip({ quiet = false } = {}) {
     pref: $('#prefSel').value,
     accessible: $('#accessible').checked,
     coach: $('#coach').checked,
+    rider: $('#riderSel').value,
   });
   if (when !== 'now' && $('#whenTime').value) {
     q.set('time', new Date($('#whenTime').value).toISOString());
@@ -372,7 +377,22 @@ function renderNotes(impact) {
   $('#planNotes').innerHTML = notes.map((n) => `<div class="note">${esc(n)}</div>`).join('');
 }
 
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const money = (n) => `$${Number(n).toFixed(2)}`;
+function fareText(f) {
+  if (!f) return '';
+  if (f.total === 0 && f.complete) return 'Free';
+  return `${money(f.total)}${f.complete ? '' : '+'}`;
+}
+function fareBlock(f) {
+  if (!f) return '';
+  const rows = f.items.map((i) => `<div>${esc(i.label)}: <b>${i.amount == null ? 'not included' : i.amount === 0 ? 'free' : money(i.amount)}</b>${i.note ? ` <span class="muted">· ${esc(i.note)}</span>` : ''}</div>`).join('');
+  return `<div class="fare-box"><div class="fare-total">Fare ${fareText(f)}${f.rider && f.rider !== 'adult' ? ` <span class="muted">(${esc(f.rider)})</span>` : ''}</div>${rows}<div class="muted small">${esc(f.note || '')}</div></div>`;
+}
+const accessIcon = '<span class="acc" aria-label="Accessibility">♿</span>';
+
 function legChip(l) {
+  if (l.bikeshare) return `<span class="chip" style="background:#2e9b47;color:#fff" title="Bike Share Toronto">${modeIcon('BIKE')}Bike Share</span>`;
   if (!l.transit) {
     if (l.mode === 'WALK' && l.durationMin < 1) return '';
     return `<span class="chip walk">${modeIcon(l.mode)}${l.durationMin}</span>`;
@@ -390,11 +410,19 @@ function renderOptions() {
   el.innerHTML = state.options.map((o, i) => {
     const first = o.legs.find((l) => l.transit);
     const leaveMins = minsUntil(o.start);
-    const title = o.kind === 'transit' ? '' : `<b>${modeName(o.kind.toUpperCase())}</b> · `;
+    const title = o.kind === 'transit' ? '' : `<b>${o.kind === 'bikeshare' ? 'Bike Share' : modeName(o.kind.toUpperCase())}</b> · `;
+    const bs = o.bikeshare;
     const leave = first
       ? `<span class="leave ${first.live ? 'live' : ''}">${first.live ? '<span class="livedot"></span>' : ''}${leaveMins <= 0 ? 'Leave now' : `Leave in ${durLabel(leaveMins)}`}</span>
          <span>${esc(modeName(first.mode))} ${esc(first.route || '')} at ${fmtTime(first.live?.time || first.start)}${first.live ? ` · ${delayLabel(first.live.delayMin)}` : ' · scheduled'}</span>`
-      : `<span class="leave">Leave any time</span>`;
+      : bs
+        ? `<span class="leave live"><span class="livedot"></span>${plural(bs.from.bikes, 'bike')}${bs.from.ebikes ? ` (${plural(bs.from.ebikes, 'e-bike')})` : ''} at ${esc(bs.from.name)}</span><span>${plural(bs.to.docks, 'free dock')} at ${esc(bs.to.name)}</span>`
+        : `<span class="leave">Leave any time</span>`;
+    const fare = o.fare ? `<span class="fare-chip" title="Estimated fare with PRESTO / tap">${fareText(o.fare)}</span>` : '';
+    const elevators = (o.accessIssues || []).filter((a) => a.kind === 'elevator');
+    const accNote = elevators.length
+      ? `<div class="acc-note">${accessIcon} Elevator out at ${esc([...new Set(elevators.map((a) => a.station))].join(', '))}</div>`
+      : (o.accessIssues || []).length ? `<div class="acc-note minor">${accessIcon} Escalator out at ${esc([...new Set(o.accessIssues.map((a) => a.station))].join(', '))}</div>` : '';
     const chips = o.legs.map(legChip).filter(Boolean).join('<span class="chev">›</span>');
     const tags = (o.tags || []).map((t) => `<span class="tag ${t === 'Recommended' ? 'rec' : ''}">${esc(t)}</span>`).join('');
     const warns = (o.warnings || []).map((w) => `<div>${esc(w)}</div>`).join('');
@@ -402,11 +430,12 @@ function renderOptions() {
       ${tags ? `<div class="tags">${tags}</div>` : ''}
       <div class="opt-head">
         <div class="opt-time">${title}${fmtTime(o.start)} – ${fmtTime(o.end)}</div>
-        <div class="opt-dur">${durLabel(o.durationMin)}</div>
+        <div class="opt-dur">${durLabel(o.durationMin)}${fare}</div>
       </div>
       <div class="opt-meta">${leave}${o.kind === 'transit' ? `<span>${o.transfers} transfer${o.transfers === 1 ? '' : 's'} · ${o.walkMin} min walk</span>` : ''}</div>
       <div class="chips">${chips}</div>
       ${warns ? `<div class="warns">${warns}</div>` : ''}
+      ${accNote}
       <div class="steps">${renderSteps(o)}</div>
     </article>`;
   }).join('');
@@ -414,13 +443,24 @@ function renderOptions() {
 
 function renderSteps(o) {
   const rows = o.legs.map((l) => {
+    if (l.bikeshare) {
+      const bs = o.bikeshare;
+      const alt = bs.alternatives?.from?.length ? `<div class="sub2">If empty: ${bs.alternatives.from.map((s) => `${esc(s.name)} (${s.bikes} bikes, ${s.distanceM} m)`).join(', ')}</div>` : '';
+      return `<div class="step" style="--c:#2e9b47"><div class="t">${fmtTime(l.start)}</div><div class="bar"></div>
+        <div class="body"><b>${esc(bs.from.name)}</b>
+          <div>${legChip(l)} <span class="sub2"><span class="livedot"></span>${plural(bs.from.bikes, 'bike')} now${bs.from.ebikes ? `, ${plural(bs.from.ebikes, 'e-bike')}` : ''}</span></div>
+          <div class="sub2">Ride about ${l.durationMin} min · dock at <b>${esc(bs.to.name)}</b> (${bs.to.docks} free docks now)</div>
+          ${alt}
+        </div></div>`;
+    }
     if (!l.transit) {
       if (l.durationMin < 1) return '';
       const dist = l.distanceM ? ` · ${l.distanceM >= 1000 ? `${(l.distanceM / 1000).toFixed(1)} km` : `${l.distanceM} m`}` : '';
       return `<div class="step walking"><div class="t">${fmtTime(l.start)}</div><div class="bar"></div>
         <div class="body">${modeName(l.mode)} ${l.durationMin} min${dist}<div class="sub2">to ${esc(l.to.name === 'END' ? 'destination' : l.to.name)}</div></div></div>`;
     }
-    const alerts = l.alerts.map((a) => `<div class="alert ${a.serious ? 'serious' : ''}">${esc(a.header)}</div>`).join('');
+    const alerts = l.alerts.map((a) => `<div class="alert ${a.serious ? 'serious' : ''}">${esc(a.header)}</div>`).join('')
+      + (l.access || []).map((a) => `<div class="alert ${a.kind === 'elevator' ? 'serious' : ''}">${accessIcon} ${esc(a.header)}</div>`).join('');
     const liveLine = l.live
       ? `<div class="sub2"><span class="livedot"></span>Live: departs ${fmtTime(l.live.time)} (${delayLabel(l.live.delayMin)})</div>`
       : '<div class="sub2">Scheduled time</div>';
@@ -437,7 +477,8 @@ function renderSteps(o) {
   const watch = o.kind === 'transit'
     ? `<button class="ghost watch-btn" type="button" data-watch>🔔 Watch this trip: remind me & alert me to delays</button><div class="watch-slot"></div>`
     : '';
-  return `${rows}<div class="arrive"><div class="t">${fmtTime(o.end)}</div><div></div><div>Arrive · ${esc(state.to?.name || '')}</div></div>${watch}`;
+  const approx = o.approximate ? '<p class="muted small" style="margin:6px 0 0">Times are estimated from distance; bike and dock counts are live.</p>' : '';
+  return `${rows}<div class="arrive"><div class="t">${fmtTime(o.end)}</div><div></div><div>Arrive · ${esc(state.to?.name || '')}</div></div>${approx}${fareBlock(o.fare)}${watch}`;
 }
 
 $('#results').addEventListener('click', (e) => {
@@ -457,10 +498,16 @@ function drawOption(o, { fit = true } = {}) {
   if (!o) return;
   const all = [];
   for (const l of o.legs) {
-    if (!l.geometry?.points) continue;
-    const pts = decodePolyline(l.geometry.points, l.geometry.precision);
+    const pts = l.geometry?.points ? decodePolyline(l.geometry.points, l.geometry.precision) : l.line;
+    if (!pts?.length) continue;
     all.push(...pts);
-    if (l.transit) {
+    if (l.bikeshare) {
+      L.polyline(pts, { color: '#2e9b47', weight: 5, opacity: 0.9, dashArray: '10 6' }).addTo(layers.route)
+        .bindTooltip('Bike Share (approximate path)', { sticky: true });
+      for (const [p, label] of [[pts[0], o.bikeshare.from.name], [pts[pts.length - 1], o.bikeshare.to.name]]) {
+        L.circleMarker(p, { radius: 6, color: '#fff', weight: 2, fillColor: '#2e9b47', fillOpacity: 1 }).bindTooltip(label).addTo(layers.route);
+      }
+    } else if (l.transit) {
       L.polyline(pts, { color: '#fff', weight: 9, opacity: 0.9 }).addTo(layers.route);
       L.polyline(pts, { color: l.color || '#0f6b5c', weight: 6, opacity: 1 }).addTo(layers.route)
         .bindTooltip(`${modeName(l.mode)} ${l.route || ''} · ${cleanHeadsign(l.headsign) || ''}`, { sticky: true });
@@ -483,6 +530,7 @@ let nearbyAt = null;
 async function loadNearby(at = nearbyAt, { quiet = false } = {}) {
   if (!at) { const c = map.getCenter(); at = { lat: c.lat, lon: c.lng }; }
   nearbyAt = at;
+  loadBikeNear(at);
   const list = $('#nearbyList');
   if (!quiet) list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
   try {
@@ -599,8 +647,21 @@ async function loadAlerts() {
     $('#alertList').innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }
 }
+function renderAccess() {
+  const acc = alertData?.accessibility || [];
+  const c = $('#accCount');
+  const elev = acc.filter((a) => a.kind === 'elevator').length;
+  c.hidden = !elev;
+  c.textContent = `${elev} elevator${elev === 1 ? '' : 's'}`;
+  const sorted = [...acc].sort((a, b) => (a.kind === 'elevator' ? 0 : 1) - (b.kind === 'elevator' ? 0 : 1) || (a.station || '').localeCompare(b.station || ''));
+  $('#accList').innerHTML = sorted.map((a) => `<div class="alert-card ${a.kind === 'elevator' ? '' : 'planned'}">
+      <div class="src">${accessIcon} TTC · ${esc(a.kind)}${a.station ? ` · ${esc(a.station)}` : ''}</div><p>${esc(a.header)}</p></div>`).join('')
+    || '<p class="muted small">All TTC elevators and escalators are working.</p>';
+}
+
 function renderAlerts() {
   if (!alertData) return;
+  renderAccess();
   const q = $('#alertSearch').value.trim().toLowerCase();
   const list = alertData.transit.filter((a) => !q || `${a.header} ${a.description} ${a.routes.join(' ')}`.toLowerCase().includes(q));
   $('#alertList').innerHTML = list.map((a) => `<div class="alert-card ${a.activeNow ? '' : 'planned'}">
@@ -638,6 +699,42 @@ async function loadWeather() {
   } catch (e) { /* weather is optional */ }
 }
 $('#wxChip').addEventListener('click', () => showTab('alerts'));
+
+// ------------------------------------------------------------------ Bike Share Toronto
+async function loadBikeNear(at) {
+  const box = $('#bikeNear');
+  try {
+    const list = await api(`bikeshare/near?at=${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
+    box.innerHTML = list.length ? `<div class="bs-card"><div class="board-h"><span>${modeIcon('BIKE')} Bike Share Toronto</span><span class="muted">live</span></div>
+      ${list.map((s) => `<div class="bs-row"><span>${esc(s.name)}<span class="muted small"> · ${s.distanceM} m</span></span>
+        <span class="n"><b>${s.bikes}</b><span>bikes${s.ebikes ? ` · ${s.ebikes} e` : ''}</span></span>
+        <span class="n"><b>${s.docks}</b><span>docks</span></span></div>`).join('')}</div>` : '';
+  } catch { box.innerHTML = ''; }
+}
+
+let bikeSeq = 0;
+async function loadBikeLayer(e) {
+  layers.bikes.clearLayers();
+  if (!$('#bikeToggle').checked) return;
+  if (map.getZoom() < 14) { if (e?.type === 'change') toast('Zoom in to see Bike Share stations'); return; }
+  const my = ++bikeSeq;
+  const b = map.getBounds().pad(0.1);
+  try {
+    const list = await api(`bikeshare?bbox=${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`);
+    if (my !== bikeSeq) return;
+    layers.bikes.clearLayers();
+    for (const s of list) {
+      const color = s.bikes === 0 ? '#9aa3a0' : s.bikes < 3 ? '#d97706' : '#2e9b47';
+      L.marker([s.lat, s.lon], {
+        icon: L.divIcon({ className: '', html: `<div class="bs-pin" style="background:${color};width:22px;height:22px">${s.bikes}</div>`, iconSize: [22, 22] }),
+        keyboard: false, zIndexOffset: -100,
+      }).bindTooltip(`${esc(s.name)}<br>${s.bikes} bikes${s.ebikes ? ` (${s.ebikes} e-bikes)` : ''} · ${s.docks} docks free`).addTo(layers.bikes);
+    }
+  } catch { /* next move */ }
+}
+$('#bikeToggle').addEventListener('change', loadBikeLayer);
+map.on('moveend', () => { if ($('#bikeToggle').checked) { clearTimeout(loadBikeLayer.t); loadBikeLayer.t = setTimeout(() => loadBikeLayer(), 400); } });
+setInterval(() => { if (!document.hidden && $('#bikeToggle').checked) loadBikeLayer(); }, 60_000);
 
 // ------------------------------------------------------------------ live vehicles
 const ROUTE_COLORS = { 1: '#d5c82b', 2: '#00923f', 4: '#a8518a' };
@@ -680,6 +777,92 @@ async function loadVehicles() {
 $('#vehToggle').addEventListener('change', loadVehicles);
 map.on('moveend', () => { clearTimeout(loadVehicles.t); loadVehicles.t = setTimeout(loadVehicles, 300); });
 setInterval(() => { if (!document.hidden) loadVehicles(); }, 15_000);
+
+// ------------------------------------------------------------------ next way home
+const home = { pos: null, option: null, loading: false, refreshes: 0, error: null, timer: null };
+
+async function geoPermission() {
+  try { return (await navigator.permissions.query({ name: 'geolocation' })).state; } catch { return 'prompt'; }
+}
+
+async function loadHome({ userAsked = false } = {}) {
+  const saved = store.get('saved', {}).Home;
+  if (!saved || home.loading) return;
+  if (userAsked) home.refreshes = 0;
+  home.loading = true;
+  home.error = null;
+  renderHome();
+  try {
+    try { home.pos = await getPosition(); } catch (e) {
+      if (!state.from) throw new Error('Allow location (or set a start point) to plan your way home.');
+      home.pos = { lat: state.from.lat, lon: state.from.lon, fallback: true };
+    }
+    if (Math.hypot(home.pos.lat - saved.lat, (home.pos.lon - saved.lon) * 0.72) < 0.0025) {
+      home.option = null;
+      home.error = "You're already home 🏠";
+      return;
+    }
+    const q = new URLSearchParams({
+      from: `${home.pos.lat},${home.pos.lon}`, to: `${saved.lat},${saved.lon}`,
+      pref: $('#prefSel').value, accessible: $('#accessible').checked, rider: $('#riderSel').value,
+    });
+    const res = await api(`plan?${q}`);
+    home.option = res.options.find((o) => o.kind === 'transit') || res.options[0] || null;
+    if (!home.option) home.error = 'No route home found right now.';
+  } catch (e) {
+    home.error = e.message;
+  } finally {
+    home.loading = false;
+    renderHome();
+  }
+}
+
+function renderHome() {
+  const box = $('#homeCard');
+  const saved = store.get('saved', {}).Home;
+  if (!saved) { box.innerHTML = ''; return; }
+  const o = home.option;
+  let body;
+  if (home.loading && !o) body = '<p class="muted small">Finding your next way home…</p>';
+  else if (home.error && !o) body = `<p class="muted small">${esc(home.error)}</p>`;
+  else if (!o) body = '<p class="muted small">Live departures from where you are to Home, ranked for weather and delays.</p>';
+  else {
+    const first = o.legs.find((l) => l.transit);
+    const leaveMins = minsUntil(o.start);
+    const chips = o.legs.map(legChip).filter(Boolean).join('<span class="chev">›</span>');
+    body = `<div class="home-main">
+        <div class="home-leave ${first?.live ? 'live' : ''}">${first?.live ? '<span class="livedot"></span>' : ''}${leaveMins <= 0 ? 'Leave now' : `Leave in ${durLabel(leaveMins)}`}</div>
+        <div class="home-arrive">Home ${fmtTime(o.end)}${o.fare ? ` · ${fareText(o.fare)}` : ''}</div>
+      </div>
+      <div class="muted small">${first ? `${esc(modeName(first.mode))} ${esc(first.route || '')} at ${fmtTime(first.live?.time || first.start)} from ${esc(first.from.name)}${first.live ? ` · ${delayLabel(first.live.delayMin)}` : ' · scheduled'}` : esc(o.kind)}</div>
+      <div class="chips">${chips}</div>
+      ${(o.warnings || []).length ? `<div class="warns">${o.warnings.map((w) => `<div>${esc(w)}</div>`).join('')}</div>` : ''}
+      ${home.pos?.fallback ? '<p class="muted small" style="margin:6px 0 0">From your start point (location not available).</p>' : ''}`;
+  }
+  box.innerHTML = `<div class="home-card">
+    <div class="home-h"><b>🏠 Next way home</b>
+      <span>${o ? '<button class="linkbtn plain" type="button" data-home="details">Details</button>' : ''}
+      <button class="ghost small-btn" type="button" data-home="go">${o || home.error ? '↻' : 'Show'}</button></span></div>
+    ${body}</div>`;
+}
+
+$('#homeCard').addEventListener('click', (e) => {
+  const act = e.target.closest('[data-home]')?.dataset.home;
+  if (act === 'go') loadHome({ userAsked: true });
+  if (act === 'details' && home.pos) {
+    const saved = store.get('saved', {}).Home;
+    state.from = null; state.to = null;
+    setPlace('from', { lat: home.pos.lat, lon: home.pos.lon, name: 'My location' }, { fit: false });
+    setPlace('to', saved);
+  }
+});
+
+// Keep it fresh while visible, but stop after ~30 min without the user touching it (saves routing quota).
+setInterval(() => {
+  if (!home.option || document.hidden || currentTab !== 'plan' || home.refreshes >= 15) return;
+  home.refreshes++;
+  loadHome();
+}, 120_000);
 
 // ------------------------------------------------------------------ push notifications
 const push = {
@@ -872,4 +1055,11 @@ $$('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.ta
   if (u.from) setPlace('from', u.from, { fit: false });
   if (u.to) setPlace('to', u.to);
   if (['nearby', 'airport', 'alerts'].includes(tab)) showTab(tab);
+  // "Next way home": load straight away from the home-screen shortcut, or on a plain visit
+  // when location is already allowed (never pop a permission prompt unasked).
+  renderHome();
+  const fromShortcut = new URLSearchParams(location.search).get('go') === 'home';
+  if (store.get('saved', {}).Home && !u.from && !u.to && !tab) {
+    if (fromShortcut || (await geoPermission()) === 'granted') loadHome({ userAsked: true });
+  }
 })();

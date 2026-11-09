@@ -7,6 +7,10 @@
   "display": "standalone",
   "background_color": "#0e1412",
   "theme_color": "#0f6b5c",
+  "shortcuts": [
+    { "name": "Next way home", "short_name": "Go home", "url": "/?go=home", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Departures near me", "short_name": "Nearby", "url": "/?tab=nearby", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ],
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }

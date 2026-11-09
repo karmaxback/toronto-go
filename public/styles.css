@@ -258,3 +258,33 @@ h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
 .days span { display: inline-block; min-width: 34px; text-align: center; padding: 4px 0; border-radius: 7px; border: 1px solid var(--line); background: var(--card); font-size: 12px; font-weight: 600; color: var(--muted); }
 .days input:checked + span { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
 .days input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+/* ---------- fares, accessibility, bike share ---------- */
+.fare-chip { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); text-align: right; }
+.fare-box { margin-top: 10px; padding: 9px 11px; border-radius: 9px; background: var(--soft); font-size: 12.5px; display: grid; gap: 2px; }
+.fare-total { font-weight: 700; font-size: 13.5px; margin-bottom: 2px; }
+.acc { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 4px; background: #1f5fbf; color: #fff; font-size: 11px; line-height: 1; vertical-align: -3px; }
+.acc-note { margin-top: 7px; font-size: 12.5px; color: var(--danger-ink); }
+.acc-note.minor { color: var(--muted); }
+.bs-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); margin-top: 10px; }
+.bs-card .board-h { background: color-mix(in srgb, #2e9b47 14%, var(--soft)); }
+.bs-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 13px; }
+.bs-row:first-of-type { border-top: 0; }
+.bs-row .n { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.bs-row .n b { font-size: 15px; }
+.bs-row .n span { display: block; font-size: 11px; color: var(--muted); }
+.bs-pin { display: grid; place-items: center; border-radius: 50%; border: 2px solid #fff; color: #fff; font: 700 10px/1 Inter, sans-serif; box-shadow: 0 1px 3px rgb(0 0 0 / .35); }
+.map-ctl { display: grid; gap: 4px; }
+
+/* ---------- next way home ---------- */
+.home-card { border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--line)); background: color-mix(in srgb, var(--brand) 7%, var(--card)); border-radius: var(--radius); padding: 10px 14px 12px; margin-bottom: 12px; }
+.home-card p { margin: 4px 0 0; }
+.home-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13.5px; }
+.home-h > span { display: flex; align-items: center; gap: 4px; }
+.home-main { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 6px; }
+.home-leave { font-size: 19px; font-weight: 700; }
+.home-leave.live { color: var(--live); }
+.home-arrive { font-weight: 600; white-space: nowrap; }
+.small-btn { padding: 4px 10px; font-size: 12.5px; }
+.linkbtn.plain { color: var(--brand); font-weight: 600; }
+.board-h svg { width: 16px; height: 16px; fill: currentColor; vertical-align: -3px; margin-right: 4px; }

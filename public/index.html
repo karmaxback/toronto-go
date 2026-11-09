@@ -44,6 +44,7 @@
       <div class="scroll">
         <!-- ===================== PLAN ===================== -->
         <section class="view active" id="view-plan">
+          <div id="homeCard"></div>
           <form id="planForm" autocomplete="off">
             <div class="od">
               <div class="field place" data-role="from">
@@ -80,6 +81,14 @@
                 <option value="less_walking">Less walking</option>
               </select>
             </div>
+            <div class="row">
+              <select id="riderSel" aria-label="Fare type">
+                <option value="adult">Adult fares</option>
+                <option value="youth">Youth (13–19) fares</option>
+                <option value="senior">Senior (65+) fares</option>
+                <option value="child">Child (12 &amp; under, free)</option>
+              </select>
+            </div>
             <div class="row checks">
               <label><input type="checkbox" id="accessible" /> Step-free / wheelchair</label>
               <label><input type="checkbox" id="coach" /> Include intercity coaches</label>
@@ -104,6 +113,7 @@
               <button class="ghost" id="nearbyMap" type="button">Map centre</button>
             </div>
           </div>
+          <div id="bikeNear"></div>
           <div id="nearbyList"></div>
         </section>
 
@@ -131,6 +141,8 @@
           <div id="notifyBox" class="notify"></div>
           <h3>Weather</h3>
           <div id="wxDetail"></div>
+          <h3>Elevators &amp; escalators out of service <span class="count" id="accCount" hidden></span></h3>
+          <div id="accList"></div>
           <div class="row between">
             <h3>Transit service alerts</h3>
             <input id="alertSearch" type="search" placeholder="Filter (e.g. Line 2, 504)" aria-label="Filter alerts" />
@@ -142,7 +154,8 @@
       <footer class="attrib">
         Data: <a href="https://gtfsrt.ttc.ca/" target="_blank" rel="noopener">TTC</a>,
         <a href="https://www.metrolinx.com/en/about-us/open-data" target="_blank" rel="noopener">Metrolinx</a>,
-        <a href="https://weather.gc.ca/" target="_blank" rel="noopener">Environment Canada</a>.
+        <a href="https://weather.gc.ca/" target="_blank" rel="noopener">Environment Canada</a>,
+        <a href="https://bikesharetoronto.com/data/" target="_blank" rel="noopener">Bike Share Toronto</a>. Fares are estimates.
         Routing <a href="https://transitous.org/sources/" target="_blank" rel="noopener">Transitous</a>
         (<a href="https://transitous.org/donate/" target="_blank" rel="noopener">donate</a>).
         Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
@@ -153,6 +166,7 @@
       <div id="map" aria-label="Map"></div>
       <div class="map-ctl">
         <label class="toggle"><input type="checkbox" id="vehToggle" checked /> Live vehicles</label>
+        <label class="toggle"><input type="checkbox" id="bikeToggle" /> Bike Share</label>
       </div>
     </main>
   </div>

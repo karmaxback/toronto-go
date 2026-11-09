@@ -25,4 +25,19 @@ export const ttc = {
 
   alerts: () => cached('ttc:alerts', 60_000, async () =>
     parseAlerts(await fetchFeed(`${BASE}/alerts/all?format=binary`), 'TTC')),
+
+  /** Elevator / escalator outages. Each has the station's platform stop IDs and the station name. */
+  accessibility: () => cached('ttc:access', 2 * 60_000, async () => {
+    const list = parseAlerts(await fetchFeed(`${BASE}/alerts/accessibility?format=binary`), 'TTC');
+    return list.filter((a) => a.activeNow).map((a) => {
+      const station = (/^([^:]{2,40}):/.exec(a.header) || [])[1]?.trim() || null; // "Pape: Escalator 8D2E out of service…"
+      return {
+        id: a.id,
+        station,
+        stops: a.stops,
+        header: a.header,
+        kind: /elevator/i.test(a.header) ? 'elevator' : /escalator/i.test(a.header) ? 'escalator' : 'other',
+      };
+    });
+  }),
 };
