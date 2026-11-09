@@ -19,6 +19,17 @@ const app = express();
 const root = path.dirname(fileURLToPath(import.meta.url));
 app.use(express.static(path.join(root, '..', 'public'), { maxAge: 0 })); // ETag revalidation, always fresh
 
+// Let the Expo web build (served from another origin during development) call the API.
+// The API is public, read-only data plus push endpoints that require the subscriber's secret endpoint URL,
+// and no cookies are used, so allowing any origin is safe.
+app.use('/api', (req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 /** Wrap an async handler so errors become JSON 502s instead of crashes. */
 const route = (fn) => async (req, res) => {
   try {

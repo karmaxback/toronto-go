@@ -36,7 +36,11 @@ export async function loadLive() {
   };
 }
 
-const WINDOW_S = 12 * 60; // a prediction must be within 12 min of the scheduled time to be matched
+// A live prediction only counts as "this departure" if it is at most 3 min early or 8 min late.
+// TTC vehicles rarely run early, and on frequent routes (subway every 2–5 min) a wider window
+// would match the scheduled trip to a *different* vehicle and show nonsense like "10 min early".
+const EARLY_S = 3 * 60;
+const LATE_S = 8 * 60;
 
 /**
  * Find the live departure for one scheduled departure.
@@ -67,8 +71,10 @@ export function matchLive(live, { stopId, routeId, tripId, scheduled }) {
     for (const rec of list) {
       const key = `${stop.raw}|${r}|${rec.tripId}|${rec.time}`;
       if (live.used.has(key)) continue;
-      const diff = Math.abs(rec.time - sched);
-      if (diff <= WINDOW_S && (!best || diff < best.diff)) best = { rec, diff, key };
+      const delta = rec.time - sched;
+      if (delta < -EARLY_S || delta > LATE_S) continue;
+      const diff = Math.abs(delta);
+      if (!best || diff < best.diff) best = { rec, diff, key };
     }
     if (best) {
       live.used.add(best.key);
