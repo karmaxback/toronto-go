@@ -1,5 +1,6 @@
 import { config, http } from '../config.js';
 import { cached } from '../cache.js';
+import { googlePlaces } from './google-places.js';
 import { motis } from './motis.js';
 
 /*
@@ -14,6 +15,10 @@ import { motis } from './motis.js';
  *
  * Photon's public server is free for fair use (https://photon.komoot.io). For heavy traffic,
  * self-host Photon and set PHOTON_URL.
+ *
+ * Backup: when `more` is set (the user paused typing or pressed Enter) and the free search has no
+ * result containing every typed word, Google Places is asked too (only if GOOGLE_PLACES_API_KEY is set;
+ * see google-places.js for the usage limits).
  */
 const PHOTON = (process.env.PHOTON_URL || 'https://photon.komoot.io').replace(/\/+$/, '');
 export const GTA_BBOX = { minLon: -80.3, minLat: 43.25, maxLon: -78.75, maxLat: 44.3 };
@@ -187,14 +192,19 @@ export function placeStreetSplits(left) {
 }
 
 /** "Fit4Less" near a corner: matches for the name, nearest to the corner first, then the corner itself. */
-async function placeNearCorner(name, corner, near) {
+async function placeNearCorner(name, corner, near, more = false) {
   const [ph, tr] = await Promise.allSettled([photon(queryWords(name).join(' ') || name, corner, { zoom: 15, scale: 0.1 }), transitous(name)]);
   const words = queryWords(name);
   const cornerLabel = corner.name;
-  const list = [...(ph.value || []), ...(tr.value || [])]
+  const rate = (list) => list
     .map((p) => ({ p, fromCorner: km(corner, p), match: coverage(words, `${p.name} ${p.detail || ''}`) }))
-    .filter((x) => x.match >= 0.5)
-    .sort((a, b) => (b.match - a.match) * 10 + (a.fromCorner - b.fromCorner));
+    .filter((x) => x.match >= 0.5);
+  let found = rate([...(ph.value || []), ...(tr.value || [])]);
+  // nothing by that name near the corner in the free data: ask Google (backup)
+  if (more && !found.some((x) => x.fromCorner <= 2)) {
+    found = [...rate(await googlePlaces(`${name} near ${cornerLabel}`, corner, { radiusKm: 3 })), ...found];
+  }
+  const list = found.sort((a, b) => (b.match - a.match) * 10 + (a.fromCorner - b.fromCorner));
   const seen = new Set();
   const out = [];
   for (const { p, fromCorner } of list) {
@@ -216,14 +226,14 @@ async function placeNearCorner(name, corner, near) {
  * @param {string} q  what the user typed
  * @param {{lat:number, lon:number}|null} near  user's location or trip start, used for ranking
  */
-export function searchPlaces(q, near = null) {
+export function searchPlaces(q, near = null, { more = false } = {}) {
   const nearKey = near ? `${near.lat.toFixed(2)},${near.lon.toFixed(2)}` : '-';
-  return cached(`places:${q.toLowerCase()}|${nearKey}`, 12 * 3600_000, async () => {
+  return cached(`places:${q.toLowerCase()}|${nearKey}|${more ? 'more' : ''}`, 12 * 3600_000, async () => {
     const { text, area } = splitArea(q);
     const areaPt = area ? { lat: AREAS[area][0], lon: AREAS[area][1] } : null;
     const bias = areaPt || near || { lat: 43.6532, lon: -79.3832 };
     const cornerHit = await resolveCorner(text).catch(() => null);
-    if (cornerHit?.name) return placeNearCorner(cornerHit.name, cornerHit.corner, near);
+    if (cornerHit?.name) return placeNearCorner(cornerHit.name, cornerHit.corner, near, more);
 
     const [ph, tr] = await Promise.allSettled([
       photon(text, bias),
@@ -248,6 +258,14 @@ export function searchPlaces(q, near = null) {
     add(ix.value);
     (ph.value || []).forEach(add);
     (tr.value || []).forEach(add);
+
+    // Backup: no free result has every typed word (a business missing from OpenStreetMap) -> ask Google.
+    const words0 = queryWords(text);
+    const isAddress = /^\s*\d+[a-z]?\s+\S/i.test(text);
+    const complete = out.some((p) => p.kind !== 'Intersection' && coverage(words0, `${p.name} ${p.detail || ''}`) >= 1);
+    if (more && !isAddress && !cornerHit && words0.length && !complete) {
+      (await googlePlaces(area ? `${text} ${area}` : text, bias)).forEach(add);
+    }
 
     // Rank: corner first; then results in the requested area; then by distance from the bias point
     // (only re-ordering when the user gave an area or a location, otherwise keep the search engine's order).

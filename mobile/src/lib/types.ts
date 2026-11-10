@@ -1,6 +1,6 @@
 // Shapes returned by the Toronto Move server (server/rank.js, server/fares.js, server/index.js).
 
-export type Place = { name: string; lat: number; lon: number; type?: string; kind?: string; detail?: string; distanceKm?: number | null; id?: string };
+export type Place = { name: string; lat: number; lon: number; type?: string; kind?: string; detail?: string; distanceKm?: number | null; id?: string; attribution?: string };
 
 export type LegAlert = { id: string; header: string; effect: string | null; serious?: boolean };
 export type AccessIssue = { station: string | null; kind: 'elevator' | 'escalator' | 'other'; header: string };

@@ -23,6 +23,7 @@ Needs Node 22+.
 | Pearson arrivals/departures (gate, terminal, delays) | [AeroDataBox](https://rapidapi.com/aedbx-aedbx/api/aerodatabox) on RapidAPI | ✅ once a key is set | **Free/paid key** |
 | Current weather, forecast, weather warnings | Environment Canada MSC GeoMet | ✅ | No |
 | Address / place search | [Photon](https://photon.komoot.io) (OpenStreetMap) + Transitous: shops, gyms, "X and Y" intersections, "<store> <city>" searches, nearest results first | — | No |
+| Backup place search | Google Places (New): only when the free search finds no exact match, after typing pauses; capped at 150 calls/day and 4,500/month by default (inside Google's free 5,000) | — | Optional: `GOOGLE_PLACES_API_KEY` |
 
 Route ranking (`server/rank.js`) scores every option by arrival time + transfers + walking, and:
 - weights walking more heavily in extreme cold or heat, rain or snow, or under an active weather warning, and advises against cycling in those conditions;

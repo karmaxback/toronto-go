@@ -24,3 +24,5 @@ services:
         sync: false
       - key: AERODATABOX_RAPIDAPI_KEY
         sync: false
+      - key: GOOGLE_PLACES_API_KEY   # optional backup place search (capped inside Google's free amount)
+        sync: false

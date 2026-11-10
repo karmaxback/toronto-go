@@ -82,7 +82,7 @@ app.get('/api/geocode', route(async (req) => {
   if (req.query.near) {
     try { near = coord(req.query.near, 'near'); } catch { near = null; }
   }
-  return searchPlaces(q.slice(0, 120), near);
+  return searchPlaces(q.slice(0, 120), near, { more: req.query.more === '1' });
 }));
 
 app.get('/api/reverse', route(async (req) => {

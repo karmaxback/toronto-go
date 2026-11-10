@@ -29,8 +29,9 @@ export type PlanParams = {
 };
 
 export const api = {
-  geocode: (q: string, near?: { lat: number; lon: number } | null) =>
-    get<Place[]>(`geocode?q=${encodeURIComponent(q)}${near ? `&near=${at(near)}` : ''}`),
+  /** `more`: also ask the backup search (Google) if the free one finds nothing that matches every word. */
+  geocode: (q: string, near?: { lat: number; lon: number } | null, more = false) =>
+    get<Place[]>(`geocode?q=${encodeURIComponent(q)}${near ? `&near=${at(near)}` : ''}${more ? '&more=1' : ''}`),
   reverse: (p: { lat: number; lon: number }) => get<Place>(`reverse?at=${at(p)}`),
   plan: (p: PlanParams) => {
     const q = new URLSearchParams({

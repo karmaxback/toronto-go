@@ -45,16 +45,20 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
     const q = text.trim();
     if (q.length < 3 || q === value?.name) return;
     const my = ++seq.current;
+    const show = (res: Place[]) => {
+      if (my !== seq.current) return;
+      const seen = new Set<string>();
+      setItems(res.filter((r) => { const k = r.name + (r.detail ?? ''); if (seen.has(k)) return false; seen.add(k); return true; }));
+    };
+    // quick free search while typing; a fuller one (may ask Google) once typing pauses
     const t = setTimeout(async () => {
       setBusy(true);
-      try {
-        const res = await api.geocode(q, near);
-        if (my !== seq.current) return;
-        const seen = new Set<string>();
-        setItems(res.filter((r) => { const k = r.name + (r.detail ?? ''); if (seen.has(k)) return false; seen.add(k); return true; }));
-      } catch { /* keep typing */ } finally { if (my === seq.current) setBusy(false); }
+      try { show(await api.geocode(q, near)); } catch { /* keep typing */ } finally { if (my === seq.current) setBusy(false); }
     }, 300);
-    return () => clearTimeout(t);
+    const t2 = setTimeout(async () => {
+      try { show(await api.geocode(q, near, true)); } catch { /* keep the quick results */ }
+    }, 1200);
+    return () => { clearTimeout(t); clearTimeout(t2); };
   }, [text, open, value?.name, near]);
 
   const q = text.trim();
@@ -64,7 +68,7 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
   const submit = async () => {
     let pick = shown[0];
     if (!pick && q.length >= 3 && q !== value?.name) {
-      try { pick = (await api.geocode(q, near))[0]; } catch { /* nothing found */ }
+      try { pick = (await api.geocode(q, near, true))[0]; } catch { /* nothing found */ }
     }
     if (pick) { onChange({ name: pick.name, lat: pick.lat, lon: pick.lon }); setOpen(false); }
   };
@@ -105,6 +109,9 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
               </View>
             </Pressable>
           ))}
+          {shown.slice(0, 6).some((p) => p.attribution) ? (
+            <Text style={[TYPE.caption, styles.credit, { color: c.muted }]}>Some results from Google Maps</Text>
+          ) : null}
         </View>
       )}
     </View>
@@ -112,6 +119,7 @@ export function PlaceInput({ role, value, placeholder, onChange, quick = [], rig
 }
 
 const styles = StyleSheet.create({
+  credit: { textAlign: 'right', paddingHorizontal: 12, paddingVertical: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm + 2, paddingHorizontal: SPACE.md, minHeight: 52 },
   input: { flex: 1, paddingVertical: SPACE.sm + 2 },
   list: { position: 'absolute', top: 52, left: 0, right: 0, borderWidth: 1, borderRadius: RADIUS.control, padding: SPACE.xs, zIndex: 50, elevation: 8 },
