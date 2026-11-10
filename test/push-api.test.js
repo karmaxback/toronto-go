@@ -33,7 +33,7 @@ test('payload encryption + VAPID signing work for a browser-shaped subscription'
 test('subscribe → prefs → watch → me → delete → unsubscribe', { skip: !up && 'dev server not running' }, async () => {
   let r = await post('subscribe', { subscription, prefs: { weather: true, weatherLevel: 'severe', routes: 'line 1, 504, lw, <script>' } });
   assert.equal(r.status, 200);
-  assert.deepEqual(r.body.prefs, { weather: true, weatherLevel: 'severe', routes: ['1', '504', 'LW'] });
+  assert.deepEqual(r.body.prefs, { weather: true, weatherLevel: 'severe', precip: true, quiet: true, routes: ['1', '504', 'LW'] });
 
   r = await post('watch', { watch: { leaveAt: '25:00', days: [1], from: { lat: 1, lon: 1 }, to: { lat: 2, lon: 2 } } });
   assert.equal(r.status, 400, 'bad time rejected');

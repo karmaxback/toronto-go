@@ -32,6 +32,13 @@ export function leaveLabel(iso: string) {
   return `Leave ${day}at ${fmtTime(iso)}`;
 }
 
+const shortDayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, weekday: 'short' });
+/** "6:00 pm" if it's today in Toronto, otherwise "Tue 6:00 am". */
+export function dayTimeLabel(iso: string) {
+  const sameDay = dateKey.format(new Date(iso)) === dateKey.format(new Date());
+  return `${sameDay ? '' : `${shortDayFmt.format(new Date(iso))} `}${fmtTime(iso)}`;
+}
+
 export function inLabel(iso: string) {
   const m = minsUntil(iso);
   if (m <= 0) return 'Now';

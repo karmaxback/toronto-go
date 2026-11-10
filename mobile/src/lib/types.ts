@@ -80,13 +80,24 @@ export type VehiclesData = { ttc: Vehicle[]; go: Vehicle[] };
 
 export type BikeStation = { id: string; name: string; lat: number; lon: number; bikes: number; ebikes: number; docks: number; distanceM?: number };
 
-export type WeatherAlert = { id: string; name: string; severity: 'minor' | 'moderate' | 'severe'; area: string | null; text: string; type: string | null };
+export type WeatherAlert = {
+  id: string; name: string; severity: 'minor' | 'moderate' | 'severe'; area: string | null; text: string; type: string | null;
+  issued?: string | null; expires?: string | null; status?: string | null;
+  /** what it means for getting around */
+  tips?: string; url?: string;
+};
+export type PrecipKind = 'ice' | 'storm' | 'mix' | 'snow' | 'rain';
+export type HourForecast = { time: string; condition: string; temp: number; feelsLike: number | null; pop: number | null; windKmh: number | null; kind: PrecipKind | null };
+/** next stretch of rain/snow in the forecast (or falling now) */
+export type UpcomingPrecip = { kind: PrecipKind; start: string; end: string; pop: number | null; now: boolean };
 export type WeatherData = {
   current: {
     condition: string; temperature: number; feelsLike: number; windKmh: number | null; gustKmh: number | null;
     windDir: string | null; humidity: number | null; forecasts: { period: string; summary: string }[];
+    hourly?: HourForecast[]; sunrise?: string | null; sunset?: string | null; updated?: string | null; url?: string;
   } | null;
   alerts: WeatherAlert[];
+  upcoming?: UpcomingPrecip | null;
 };
 
 export type TransitAlert = { id: string; source: string; header: string; description: string; routes: string[]; activeNow: boolean; effect: string | null };

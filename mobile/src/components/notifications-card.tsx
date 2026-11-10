@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Switch, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { usePush, type PushPrefs } from '@/lib/push';
 import { useColors } from '@/lib/theme';
@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import { getSettings } from '@/lib/settings';
 
 import { Icon } from './icon';
-import { Button, Card, Note, Pill, RADIUS, Segmented, SPACE, T, TYPE } from './ui';
+import { Button, Card, Note, Pill, RADIUS, Segmented, SPACE, SwitchRow, T, TYPE } from './ui';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const fmtDays = (d: number[]) =>
@@ -26,7 +26,7 @@ export function NotificationsCard({ bare }: { bare?: boolean }) {
   const push = usePush();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tone: 'info' | 'danger' } | null>(null);
-  const [draft, setDraft] = useState<{ weather: boolean; level: PushPrefs['weatherLevel']; routes: string } | null>(null);
+  const [draft, setDraft] = useState<{ weather: boolean; level: PushPrefs['weatherLevel']; precip: boolean; quiet: boolean; routes: string } | null>(null);
 
   const run = async (fn: () => Promise<unknown>, ok?: string) => {
     setBusy(true); setMsg(null);
@@ -37,7 +37,7 @@ export function NotificationsCard({ bare }: { bare?: boolean }) {
   // editable copy of the saved preferences (adjusted while rendering when the server's copy changes)
   const [seen, setSeen] = useState(s);
   if (s !== seen) { setSeen(s); setDraft(null); }
-  const prefs = draft ?? (s ? { weather: s.prefs.weather, level: s.prefs.weatherLevel, routes: s.prefs.routes.join(', ') } : null);
+  const prefs = draft ?? (s ? { weather: s.prefs.weather, level: s.prefs.weatherLevel, precip: s.prefs.precip !== false, quiet: s.prefs.quiet !== false, routes: s.prefs.routes.join(', ') } : null);
 
   return (
     <Frame bare={bare}>
@@ -55,22 +55,28 @@ export function NotificationsCard({ bare }: { bare?: boolean }) {
         </>
       ) : prefs && (
         <>
-          <View style={styles.row}>
-            <T>Weather alerts for Toronto</T>
-            <Switch value={prefs.weather} onValueChange={(v) => setDraft({ ...prefs, weather: v })} trackColor={{ true: c.brand }} />
+          <View>
+            <SwitchRow icon="warning" title="Weather alerts for Toronto" detail="Environment Canada warnings, plus updates and when they end"
+              value={prefs.weather} onChange={(v) => setDraft({ ...prefs, weather: v })} last={!prefs.weather} />
+            {prefs.weather ? (
+              <View style={{ paddingVertical: SPACE.sm }}>
+                <Segmented<PushPrefs['weatherLevel']> value={prefs.level} onChange={(v) => setDraft({ ...prefs, level: v })} options={[
+                  { value: 'severe', label: 'Warnings only' }, { value: 'moderate', label: '+ Watches' }, { value: 'minor', label: 'Everything' },
+                ]} />
+              </View>
+            ) : null}
+            <SwitchRow icon="umbrella" title="Rain and snow heads-up" detail="“Snow around 4 pm” when it’s likely in the next few hours"
+              value={prefs.precip} onChange={(v) => setDraft({ ...prefs, precip: v })} />
+            <SwitchRow icon="moon" title="Quiet hours, 10 pm – 7 am" detail="Only urgent warnings and service shutdowns overnight; the rest wait until morning"
+              value={prefs.quiet} onChange={(v) => setDraft({ ...prefs, quiet: v })} last />
           </View>
-          {prefs.weather ? (
-            <Segmented<PushPrefs['weatherLevel']> value={prefs.level} onChange={(v) => setDraft({ ...prefs, level: v })} options={[
-              { value: 'severe', label: 'Warnings only' }, { value: 'moderate', label: '+ Watches' }, { value: 'minor', label: 'Everything' },
-            ]} />
-          ) : null}
-          <T style={{ marginTop: 6 }}>Routes to follow</T>
+          <T style={{ marginTop: SPACE.sm }}>Routes to follow</T>
           <TextInput value={prefs.routes} onChangeText={(t) => setDraft({ ...prefs, routes: t })} placeholder="e.g. 1, 2, 504, 29, LW"
             placeholderTextColor={c.muted} autoCapitalize="characters" autoCorrect={false}
             style={[styles.input, TYPE.body, { borderColor: c.line, color: c.ink, backgroundColor: c.bg }]} />
           <T muted variant="small">Subway lines, bus or streetcar numbers, or GO lines (LW, LE, KI, BR, RH, ST, MI). You’ll get new service alerts on these.</T>
           <View style={styles.btns}>
-            <Button title="Save" onPress={() => run(() => push.savePrefs({ weather: prefs.weather, weatherLevel: prefs.level, routes: prefs.routes }), 'Saved.')} loading={busy} />
+            <Button title="Save" onPress={() => run(() => push.savePrefs({ weather: prefs.weather, weatherLevel: prefs.level, precip: prefs.precip, quiet: prefs.quiet, routes: prefs.routes }), 'Saved.')} loading={busy} />
             <Button title="Send test" kind="ghost" onPress={() => run(push.test, 'Test sent. It should arrive in a few seconds.')} />
             <Button title="Turn off" kind="ghost" onPress={() => run(push.disable, 'Notifications turned off.')} />
           </View>

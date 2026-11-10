@@ -2,7 +2,7 @@ import express from 'express';
 import { config } from './config.js';
 import { ttc } from './sources/ttc.js';
 import { go } from './sources/go.js';
-import { weather, weatherImpact } from './sources/weather.js';
+import { weather, weatherImpact, upcomingPrecip } from './sources/weather.js';
 import { flights } from './sources/flights.js';
 import { motis } from './sources/motis.js';
 import { loadLive, matchLive, hasLiveFeed } from './live.js';
@@ -61,7 +61,7 @@ app.get('/api/status', route(async () => ({
 // ---------------------------------------------------------------- weather + alerts
 app.get('/api/weather', route(async () => {
   const [current, alerts] = await Promise.all([weather.current().catch(() => null), weather.alerts().catch(() => [])]);
-  return { current, alerts, impact: weatherImpact(current, alerts) };
+  return { current, alerts, upcoming: upcomingPrecip(current?.hourly), impact: weatherImpact(current, alerts) };
 }));
 
 app.get('/api/alerts', route(async () => {

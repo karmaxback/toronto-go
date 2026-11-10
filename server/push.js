@@ -45,12 +45,14 @@ webpush.setVapidDetails(subject, db.vapid.publicKey, db.vapid.privateKey);
 
 export const subId = (endpoint) => crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 24);
 
-const DEFAULT_PREFS = { weather: true, weatherLevel: 'moderate', routes: [] };
+const DEFAULT_PREFS = { weather: true, weatherLevel: 'moderate', precip: true, quiet: true, routes: [] };
 
 function cleanPrefs(p = {}) {
   return {
     weather: p.weather !== false,
     weatherLevel: ['minor', 'moderate', 'severe'].includes(p.weatherLevel) ? p.weatherLevel : 'moderate',
+    precip: p.precip !== false, // "snow around 4 pm" heads-ups
+    quiet: p.quiet !== false,   // hold non-urgent notifications 10 pm to 7 am
     routes: [...new Set((Array.isArray(p.routes) ? p.routes : String(p.routes || '').split(/[\s,]+/))
       .map((r) => String(r).trim().toUpperCase().replace(/^LINE\s*/, ''))
       .filter((r) => /^[A-Z0-9-]{1,12}$/.test(r)))].slice(0, 20),

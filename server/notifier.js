@@ -1,14 +1,16 @@
 import { db, save, send as realSend } from './push.js';
-import { weather } from './sources/weather.js';
+import { PRECIP_NAME, upcomingPrecip, weather } from './sources/weather.js';
 import { allAlerts, planTrip } from './planner.js';
 
 /*
  * Background loop (every minute) that decides who gets which push notification:
- *  1. Weather  — new Environment Canada alerts for Toronto at or above the user's chosen level.
+ *  1. Weather  — new / updated / ended Environment Canada alerts for Toronto at or above the user's
+ *                chosen level, plus "snow around 4 pm" heads-ups from the hourly forecast.
  *  2. Routes   — new TTC / GO service alerts on routes the user follows (e.g. "1", "504", "LW").
  *  3. Trips    — watched commutes: a heads-up if something is wrong, a "leave in N min" reminder,
  *                and an update if the live delay changes after that.
- * Every notification has a dedupe key so nobody gets the same thing twice.
+ * Every notification has a dedupe key so nobody gets the same thing twice. During quiet hours
+ * (10 pm to 7 am, on by default) only urgent ones are sent; the rest wait until morning if still relevant.
  */
 
 const TZ = 'America/Toronto';
@@ -72,25 +74,94 @@ const tripUrl = (w) => {
 
 // ---------------------------------------------------------------- pure decision functions (unit-testable)
 
-/** Which weather alerts should this subscriber get? */
-export function weatherPushes(sub, alerts, sent) {
+/** Overnight quiet hours (Toronto time): only urgent notifications get through. */
+export const QUIET_FROM = 22, QUIET_TO = 7;
+export const inQuietHours = (now = Date.now()) => { const h = torontoParts(new Date(now)).hh; return h >= QUIET_FROM || h < QUIET_TO; };
+
+/** "6 pm" today, "Tue 6 am" another day. */
+function untilLabel(iso, now) {
+  const same = torontoParts(new Date(iso)).date === torontoParts(new Date(now)).date;
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, weekday: 'short' }).format(new Date(iso));
+  return `${same ? '' : `${day} `}${clock(iso)}`;
+}
+
+/**
+ * Which weather alerts should this subscriber get? New ones at or above their level; an alert that
+ * Environment Canada re-issues (new issue time) comes again marked "Updated".
+ * Jobs may carry `also` (extra dedupe keys to set) and `clear` (keys to remove) for the loop.
+ */
+export function weatherPushes(sub, alerts, sent, now = Date.now()) {
   if (!sub.prefs.weather) return [];
   const min = LEVELS[sub.prefs.weatherLevel] ?? 1;
   return alerts
     .filter((a) => (LEVELS[a.severity] ?? 0) >= min)
     .map((a) => ({ key: `wx:${a.name}|${a.issued || a.id}`, a }))
     .filter(({ key }) => !sent[key])
-    .map(({ key, a }) => ({
-      key,
-      urgency: a.severity === 'severe' ? 'high' : 'normal',
-      payload: {
-        title: `${a.severity === 'severe' ? '⚠️ ' : ''}${a.name}${a.area ? ` · ${a.area}` : ''}`,
-        body: (a.impact ? `${a.impact}. ` : '') + (a.text || '').replace(/\s+/g, ' ').slice(0, 180),
-        tag: `wx-${a.name}`,
-        url: '/?tab=alerts',
-        urgent: a.severity === 'severe',
-      },
-    }));
+    .map(({ key, a }) => {
+      const updated = Boolean(sent[`wxname:${a.name}`]);
+      const until = a.expires ? `Until ${untilLabel(a.expires, now)}. ` : '';
+      return {
+        key,
+        also: { [`wxname:${a.name}`]: a.issued || a.id },
+        urgency: a.severity === 'severe' ? 'high' : 'normal',
+        payload: {
+          title: `${a.severity === 'severe' ? '⚠️ ' : ''}${updated ? 'Updated: ' : ''}${a.name}${a.area ? ` · ${a.area}` : ''}`,
+          body: `${until}${a.tips || (a.text || '').replace(/\s+/g, ' ')}`.slice(0, 220),
+          tag: `wx-${a.name}`,
+          url: '/?tab=alerts',
+          urgent: a.severity === 'severe',
+        },
+      };
+    });
+}
+
+/** "Ended: Snowfall warning" for alerts we told this subscriber about that are no longer active. */
+export function weatherEnded(sub, alerts, sent) {
+  if (!sub.prefs.weather) return [];
+  const active = new Set(alerts.map((a) => a.name));
+  return Object.keys(sent)
+    .filter((k) => k.startsWith('wxname:') && !active.has(k.slice(7)))
+    .map((k) => {
+      const name = k.slice(7);
+      return {
+        key: `wxend:${name}|${sent[k]}`,
+        clear: [k],
+        urgency: 'normal',
+        payload: { title: `Ended: ${name}`, body: 'Environment Canada has ended this alert for Toronto.', tag: `wx-${name}`, url: '/?tab=alerts' },
+      };
+    });
+}
+
+const PRECIP_TIP = {
+  rain: 'Take an umbrella. Buses may run a little slower.',
+  storm: 'Lightning can pause streetcars and GO trains. Wait indoors if you can.',
+  snow: 'Buses and streetcars slow down in snow. Allow extra time.',
+  mix: 'Slushy sidewalks; buses and streetcars may slow down. Allow extra time.',
+  ice: 'Sidewalks, stairs and platforms may be icy. Allow extra time and watch your step.',
+};
+
+/**
+ * "Snow around 4 pm" heads-up: rain/snow likely (60%+) starting 20 min to 3 h from now.
+ * At most one per kind every 6 hours.
+ */
+export function precipPushes(sub, upcoming, sent, now = Date.now()) {
+  if (sub.prefs.precip === false || !upcoming || upcoming.now) return [];
+  const startIn = Date.parse(upcoming.start) - now;
+  if ((upcoming.pop ?? 0) < 60 || startIn < 20 * 60_000 || startIn > 3 * 3600_000) return [];
+  const last = sent[`precip:last:${upcoming.kind}`];
+  if (last && now - last < 6 * 3600_000) return [];
+  const name = PRECIP_NAME[upcoming.kind] || 'Rain or snow';
+  return [{
+    key: `precip:${upcoming.kind}:${upcoming.start}`,
+    also: { [`precip:last:${upcoming.kind}`]: now },
+    urgency: 'normal',
+    payload: {
+      title: `${name} around ${clock(upcoming.start)}`,
+      body: `${upcoming.pop}% chance, until about ${clock(upcoming.end)}. ${PRECIP_TIP[upcoming.kind] || ''}`.trim(),
+      tag: `precip-${upcoming.kind}`,
+      url: '/?tab=alerts',
+    },
+  }];
 }
 
 const routeMatches = (alertRoutes, followed) =>
@@ -205,25 +276,32 @@ export function setDeliver(fn) { deliver = fn; } // for tests
 async function checkAlerts() {
   const subs = Object.values(db.subs);
   if (!subs.length) return;
-  const [wx, transit] = await Promise.all([
+  const now = Date.now();
+  const [wx, current, transit] = await Promise.all([
     weather.alerts().catch(() => null),
+    weather.current().catch(() => null),
     allAlerts().then((a) => a.transit).catch(() => null),
   ]);
   for (const sub of subs) {
     const sent = (db.sent[sub.id] ||= {});
     const jobs = [];
-    if (wx) jobs.push(...weatherPushes(sub, wx, sent));
+    if (wx) jobs.push(...weatherPushes(sub, wx, sent, now), ...weatherEnded(sub, wx, sent));
+    if (current) jobs.push(...precipPushes(sub, upcomingPrecip(current.hourly, now), sent, now));
     if (transit) {
       const r = routePushes(sub, transit, sent);
       for (const k of r.baseline) sent[k] = Date.now();
       if (r.routesKey !== undefined) sent.__routes = r.routesKey;
       jobs.push(...r.pushes);
     }
-    for (const j of jobs.slice(0, 3)) { // never burst more than 3 at once
+    const quiet = sub.prefs.quiet !== false && inQuietHours(now);
+    const ready = jobs.filter((j) => !quiet || j.urgency === 'high'); // the rest wait (not marked as sent)
+    for (const j of ready.slice(0, 3)) { // never burst more than 3 at once
       sent[j.key] = Date.now();
+      Object.assign(sent, j.also || {});
+      for (const k of j.clear || []) delete sent[k];
       if (db.subs[sub.id]) await deliver(sub, j.payload, { urgency: j.urgency });
     }
-    if (jobs.length) save();
+    if (ready.length) save();
   }
 }
 

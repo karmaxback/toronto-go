@@ -53,7 +53,7 @@ export async function planTrip({ from, to, time = null, arriveBy = false, pref =
     allAlerts(),
     loadLive(),
   ]);
-  const impact = weatherImpact(wx[0], wx[1]);
+  const impact = weatherImpact(wx[0], wx[1], { at: time ? time.getTime() : null });
 
   // Bike Share Toronto option, built from live station availability (not offered for step-free trips).
   const extra = [];

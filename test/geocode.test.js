@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coverage, queryWords, splitArea, splitIntersection } from '../server/sources/geocode.js';
+import { coverage, placeStreetSplits, queryWords, splitArea, splitIntersection } from '../server/sources/geocode.js';
 
 test('city names at the end of a search are understood', () => {
   assert.deepEqual(splitArea('Dollar Tree Richmond Hill'), { text: 'dollar tree', area: 'richmond hill' });
@@ -30,4 +30,13 @@ test('coverage prefers results containing all the typed words', () => {
   assert.equal(coverage(w, 'Morningside Ave at Lawrence Ave E'), 1);
   assert.equal(coverage(w, 'St. Lawrence Convenience'), 0.5);
   assert.equal(coverage(queryWords('Fit 4 Less'), 'Fit4Less'), 1);
+});
+
+test('a place name in front of a corner is separated from the street', () => {
+  assert.deepEqual(placeStreetSplits('Fit4Less Lawrence Ave'), [
+    { name: 'Fit4Less', street: 'Lawrence Ave' },
+  ]);
+  assert.deepEqual(placeStreetSplits('Dollar Tree Lawrence Ave E')[0], { name: 'Dollar Tree', street: 'Lawrence Ave E' });
+  assert.deepEqual(placeStreetSplits('fit 4 less st clair ave')[1], { name: 'fit 4 less', street: 'st clair ave' });
+  assert.deepEqual(placeStreetSplits('Lawrence'), [], 'a street alone has no place name');
 });

@@ -17,6 +17,12 @@ function fetchWeather() {
   return inflight;
 }
 
+/** Fetch fresh weather now (pull to refresh); every screen using useWeather updates. */
+export function refreshWeather() {
+  cache = null;
+  return fetchWeather();
+}
+
 export function useWeather() {
   const [data, setData] = useState<WeatherData | null>(cache?.data ?? null);
   useEffect(() => {

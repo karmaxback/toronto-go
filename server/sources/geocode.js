@@ -8,6 +8,7 @@ import { motis } from './motis.js';
  *  - "<name> <city>" ("Dollar Tree Richmond Hill", "dollar tree markham") -> city removed from the text,
  *    results ranked in/near that city first, distance shown
  *  - intersections ("Lawrence and Morningside", "Yonge & Eglinton")      -> the transit stop at that corner
+ *  - a place at a corner ("Fit4Less Lawrence Ave/Morningside Ave")      -> that place nearest the corner, then the corner
  *  - addresses and transit stops                                         -> Photon + Transitous, merged
  * Results nearest to the user (or their start point) come first when `near` is given.
  *
@@ -110,7 +111,7 @@ function photonToPlace(f) {
   };
 }
 
-async function photon(text, bias) {
+async function photon(text, bias, { zoom = 12, scale = 0.4 } = {}) {
   const qs = new URLSearchParams({
     q: text,
     limit: '12',
@@ -118,8 +119,8 @@ async function photon(text, bias) {
     bbox: `${GTA_BBOX.minLon},${GTA_BBOX.minLat},${GTA_BBOX.maxLon},${GTA_BBOX.maxLat}`,
     lat: String(bias.lat),
     lon: String(bias.lon),
-    zoom: '12',
-    location_bias_scale: '0.4',
+    zoom: String(zoom),
+    location_bias_scale: String(scale),
   });
   const res = await http(`${PHOTON}/api/?${qs}`, { timeout: 8000 });
   return (res.features || []).map(photonToPlace).filter((p) => Number.isFinite(p.lat) && inGta(p.lat, p.lon));
@@ -143,6 +144,74 @@ async function intersection([a, b, rawA, rawB]) {
   return { name: `${title(rawA)} & ${title(rawB)}`, type: 'PLACE', kind: 'Intersection', detail: title(city), lat, lon, source: 'intersection' };
 }
 
+const SUFFIX = /^(ave|avenue|st|street|rd|road|dr|drive|blvd|boulevard|cres|crescent|pkwy|parkway|e|w|n|s|east|west|north|south)\.?$/i;
+
+/**
+ * Work out whether the text names a corner, possibly with a place in front of it:
+ *   "Lawrence and Morningside"                 -> { name: null, corner }
+ *   "Fit4Less Lawrence Ave / Morningside Ave"  -> { name: "Fit4Less", corner: Lawrence & Morningside }
+ *   "Fit4Less at Lawrence and Morningside"     -> { name: "Fit4Less", corner: Lawrence & Morningside }
+ * Returns null when no corner is found. `corner` is the intersection place (with lat/lon).
+ */
+export async function resolveCorner(text) {
+  const plain = splitIntersection(text);
+  if (!plain) return null;
+  const found = await intersection(plain);
+  if (found) return { name: null, corner: found };
+
+  const tries = [];
+  // "<place> at|near <street> and <street>"
+  const at = /^(.+?)\s+(?:at|@|near|by)\s+(.+)$/i.exec(text);
+  if (at && splitIntersection(at[2])) tries.push({ name: at[1].trim(), streets: splitIntersection(at[2]) });
+  // "<place> <street> / <street>": the street is the last one or two words before the separator
+  for (const n of placeStreetSplits(plain[2])) {
+    const streets = splitIntersection(`${n.street} and ${plain[3]}`);
+    if (streets) tries.push({ name: n.name, streets });
+  }
+  const results = await Promise.all(tries.map(async (t) => ({ name: t.name, corner: await intersection(t.streets).catch(() => null) })));
+  return results.find((r) => r.corner) ?? null;
+}
+
+/** "Fit4Less Lawrence Ave E" -> [{name:"Fit4Less", street:"Lawrence Ave E"}, {name:null..}] (one- and two-word street names). */
+export function placeStreetSplits(left) {
+  const tokens = left.trim().split(/\s+/);
+  let end = tokens.length;
+  while (end > 0 && SUFFIX.test(tokens[end - 1])) end--; // skip "Ave", "E"...
+  const out = [];
+  for (const k of [1, 2]) {
+    const cut = end - k;
+    const name = tokens.slice(0, cut).join(' ');
+    if (cut >= 1 && name.replace(/[^a-z0-9]/gi, '').length >= 3) out.push({ name, street: tokens.slice(cut).join(' ') });
+  }
+  return out;
+}
+
+/** "Fit4Less" near a corner: matches for the name, nearest to the corner first, then the corner itself. */
+async function placeNearCorner(name, corner, near) {
+  const [ph, tr] = await Promise.allSettled([photon(queryWords(name).join(' ') || name, corner, { zoom: 15, scale: 0.1 }), transitous(name)]);
+  const words = queryWords(name);
+  const cornerLabel = corner.name;
+  const list = [...(ph.value || []), ...(tr.value || [])]
+    .map((p) => ({ p, fromCorner: km(corner, p), match: coverage(words, `${p.name} ${p.detail || ''}`) }))
+    .filter((x) => x.match >= 0.5)
+    .sort((a, b) => (b.match - a.match) * 10 + (a.fromCorner - b.fromCorner));
+  const seen = new Set();
+  const out = [];
+  for (const { p, fromCorner } of list) {
+    const key = `${p.name.toLowerCase()}|${p.lat.toFixed(4)},${p.lon.toFixed(4)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const howFar = fromCorner < 1 ? `${Math.round(fromCorner * 1000 / 10) * 10} m from ${cornerLabel}` : `${fromCorner.toFixed(1)} km from ${cornerLabel}`;
+    out.push({ ...p, detail: [p.detail, howFar].filter(Boolean).join(' · '), fromCorner });
+  }
+  // places at the corner first, then the corner itself, then the same name further away
+  const close = out.filter((p) => p.fromCorner <= 2);
+  const far = out.filter((p) => p.fromCorner > 2);
+  return [...close, corner, ...far].slice(0, 8).map(({ fromCorner, city, source, ...p }) => ({
+    ...p, distanceKm: near ? Math.round(km(near, p) * 10) / 10 : null,
+  }));
+}
+
 /**
  * @param {string} q  what the user typed
  * @param {{lat:number, lon:number}|null} near  user's location or trip start, used for ranking
@@ -153,13 +222,14 @@ export function searchPlaces(q, near = null) {
     const { text, area } = splitArea(q);
     const areaPt = area ? { lat: AREAS[area][0], lon: AREAS[area][1] } : null;
     const bias = areaPt || near || { lat: 43.6532, lon: -79.3832 };
-    const corner = splitIntersection(text);
+    const cornerHit = await resolveCorner(text).catch(() => null);
+    if (cornerHit?.name) return placeNearCorner(cornerHit.name, cornerHit.corner, near);
 
-    const [ph, tr, ix] = await Promise.allSettled([
+    const [ph, tr] = await Promise.allSettled([
       photon(text, bias),
       transitous(area ? `${text} ${area}` : text),
-      corner ? intersection(corner) : Promise.resolve(null),
     ]);
+    const ix = { value: cornerHit?.corner ?? null };
     if (ph.status === 'rejected') console.warn('[geocode] photon failed:', ph.reason?.message);
 
     // Merge, dropping duplicates: same name close together (a station has many entrances; a city

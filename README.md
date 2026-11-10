@@ -51,6 +51,9 @@ Once **Home** is saved, a card at the top of the Plan tab shows the best live ro
 
 ## Push notifications
 
+Weather notifications: new Environment Canada alerts at the chosen level, "Updated" when one is re-issued, "Ended" when it's lifted, and a heads-up when rain or snow is likely (60%+) within 3 hours. Quiet hours (10 pm–7 am, on by default) hold everything except severe warnings and full service shutdowns until morning. Trip planning uses the hourly forecast for trips later in the day.
+
+
 Turn them on in the **Alerts** tab. Users get:
 
 | Type | When |

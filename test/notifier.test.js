@@ -96,6 +96,43 @@ test('weather pushes respect level and dedupe', () => {
   assert.equal(N.weatherPushes({ prefs: { weather: false } }, alerts, {}).length, 0);
 });
 
+test('weather: updated alerts say so, ended alerts get a closing note', () => {
+  const sub = { prefs: { weather: true, weatherLevel: 'moderate' } };
+  const now = Date.parse('2026-12-01T17:00:00Z');
+  const first = [{ name: 'Snowfall warning', severity: 'severe', issued: 'a', expires: '2026-12-01T23:00:00Z', tips: 'Allow extra time.' }];
+  const sent = {};
+  const [j] = N.weatherPushes(sub, first, sent, now);
+  assert.match(j.payload.body, /^Until 6:00 pm\. Allow extra time\./);
+  sent[j.key] = 1; Object.assign(sent, j.also);
+  const [u] = N.weatherPushes(sub, [{ ...first[0], issued: 'b' }], sent, now);
+  assert.match(u.payload.title, /Updated: Snowfall warning/);
+  sent[u.key] = 1; Object.assign(sent, u.also);
+  assert.equal(N.weatherEnded(sub, first, sent).length, 0, 'still active');
+  const [e] = N.weatherEnded(sub, [], sent);
+  assert.equal(e.payload.title, 'Ended: Snowfall warning');
+  assert.deepEqual(e.clear, ['wxname:Snowfall warning']);
+});
+
+test('rain/snow heads-up: likely, 20 min to 3 h away, once per 6 h, can be turned off', () => {
+  const sub = { prefs: { precip: true } };
+  const now = Date.parse('2026-12-01T17:00:00Z');
+  const up = { kind: 'snow', start: '2026-12-01T19:00:00Z', end: '2026-12-01T22:00:00Z', pop: 80, now: false };
+  const [j] = N.precipPushes(sub, up, {}, now);
+  assert.equal(j.payload.title, 'Snow around 2:00 pm');
+  assert.match(j.payload.body, /80% chance, until about 5:00 pm/);
+  assert.equal(N.precipPushes(sub, up, j.also, now).length, 0, 'not again within 6 h');
+  assert.equal(N.precipPushes(sub, { ...up, pop: 40 }, {}, now).length, 0);
+  assert.equal(N.precipPushes(sub, { ...up, start: '2026-12-01T23:00:00Z' }, {}, now).length, 0, 'too far ahead');
+  assert.equal(N.precipPushes(sub, { ...up, now: true }, {}, now).length, 0, 'already falling');
+  assert.equal(N.precipPushes({ prefs: { precip: false } }, up, {}, now).length, 0);
+});
+
+test('quiet hours are 10 pm to 7 am Toronto time', () => {
+  assert.ok(N.inQuietHours(Date.parse('2026-12-01T04:00:00Z'))); // 11 pm
+  assert.ok(N.inQuietHours(Date.parse('2026-12-01T11:30:00Z'))); // 6:30 am
+  assert.equal(N.inQuietHours(Date.parse('2026-12-01T12:30:00Z')), false); // 7:30 am
+});
+
 test('route alerts: baseline existing, then push only new ones on followed routes', () => {
   const sub = { prefs: { routes: ['1', 'LW'] } };
   const a1 = { source: 'TTC', header: 'Line 1 delays', routes: ['1'], activeNow: true, effect: 'SIGNIFICANT_DELAYS' };

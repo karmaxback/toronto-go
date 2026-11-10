@@ -7,7 +7,13 @@ import type { Place } from './types';
 
 /* Notification settings shared by the Alerts tab (settings) and route cards (watch this trip). */
 
-export type PushPrefs = { weather: boolean; weatherLevel: 'minor' | 'moderate' | 'severe'; routes: string[] };
+export type PushPrefs = {
+  weather: boolean; weatherLevel: 'minor' | 'moderate' | 'severe'; routes: string[];
+  /** "snow around 4 pm" heads-ups */
+  precip?: boolean;
+  /** hold non-urgent notifications 10 pm to 7 am */
+  quiet?: boolean;
+};
 export type Watch = {
   id: string; name: string | null; from: Place; to: Place; leaveAt: string; days: number[];
   remindMin: number; pref: string; accessible: boolean;
